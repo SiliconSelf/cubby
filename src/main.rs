@@ -24,7 +24,7 @@ async fn main() {
     let socket_addr =
         SocketAddr::new(IpAddr::from([0, 0, 0, 0]), PROGRAM_CONFIG.port);
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000")
+    let listener = tokio::net::TcpListener::bind(socket_addr)
         .await
         .expect("Failed to start listener");
     axum::serve(listener, app).await.expect("Failed to serve axum app");
