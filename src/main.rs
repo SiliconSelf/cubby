@@ -1,26 +1,31 @@
 #![doc = include_str!("../README.md")]
 
+mod config;
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+
+use config::PROGRAM_CONFIG;
 #[cfg(all(not(target_env = "msvc"), feature = "jemalloc"))]
 use tikv_jemallocator::Jemalloc;
 #[cfg(all(not(target_env = "msvc"), feature = "jemalloc"))]
 #[global_allocator]
+/// Sets Jemalloc as the default global allocator for better performance when
+/// using polars
 static GLOBAL: Jemalloc = Jemalloc;
 
-use axum::{
-    routing::get,
-    Router
-};
+use axum::{routing::get, Router};
 
 #[tokio::main]
 async fn main() {
     // Initialize logging
     tracing_subscriber::fmt::init();
     // Create basic app
-    let app = Router::new()
-        .route("/", get(|| async { "Hello, World!" }));
+    let app = Router::new().route("/", get(|| async { "Hello, World!" }));
     // Create listener
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await
+    let socket_addr =
+        SocketAddr::new(IpAddr::from([0, 0, 0, 0]), PROGRAM_CONFIG.port);
+
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000")
+        .await
         .expect("Failed to start listener");
-    axum::serve(listener, app).await
-        .expect("Failed to serve axum app");
+    axum::serve(listener, app).await.expect("Failed to serve axum app");
 }
