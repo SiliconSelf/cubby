@@ -3,19 +3,17 @@ name = "cubby"
 description = "A parquet-backed matrix homeserver"
 version = "0.1.0"
 edition = "2021"
+
 [profile.release]
 strip = true
 lto = true
 opt-level = 3
 codegen-units = 1
 
-
-
 [workspace.lints.rust]
 missing_abi = "warn"
 missing_docs = "warn"
 noop_method_call = "warn"
-pointer_structural_match = "warn"
 unreachable_pub = "warn"
 unused_extern_crates = "warn"
 unused_import_braces = "warn"
@@ -53,3 +51,29 @@ wildcard_dependencies = "warn"
 
 [lints]
 workspace = true
+
+[dependencies]
+ruma = { git = "https://github.com/ruma/ruma", branch = "main", features = [
+    "client-api-s",
+    "federation-api-s",
+    "compat"
+] }
+polars = { version = "0.40.0", features = [
+    # Performance optimizations
+    "performant",
+    # Required for SIMD optimizations
+    "nightly",
+    # The Lazy API is used for query plan optimizations
+    "lazy",
+    # Using categorical data gets us better cache efficiency than raw strings
+    "dtype-categorical",
+    # Enable reading from parquet files
+    "parquet"
+] }
+tikv-jemallocator = {  version = "0.5.4", optional = true }
+axum = { version = "0.7.5", features = ["http2"] }
+tokio = { version = "1.38.0", features = ["full"] }
+tracing-subscriber = "0.3.18"
+
+[features]
+jemalloc = ["dep:tikv-jemallocator"]
