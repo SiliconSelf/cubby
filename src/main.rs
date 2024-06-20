@@ -1,7 +1,9 @@
 #![doc = include_str!("../README.md")]
 
 mod config;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+mod managers;
+
+use std::net::{IpAddr, SocketAddr};
 
 use config::PROGRAM_CONFIG;
 #[cfg(all(not(target_env = "msvc"), feature = "jemalloc"))]
@@ -19,7 +21,9 @@ async fn main() {
     // Initialize logging
     tracing_subscriber::fmt::init();
     // Create basic app
-    let app = Router::new().route("/", get(|| async { "Hello, World!" }));
+    let app = Router::new()
+        .with_state(managers::dataframes::DataframeManager::new())
+        .route("/", get(|| async { "Hello, World!" }));
     // Create listener
     let socket_addr =
         SocketAddr::new(IpAddr::from([0, 0, 0, 0]), PROGRAM_CONFIG.port);

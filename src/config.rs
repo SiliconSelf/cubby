@@ -18,6 +18,24 @@ pub(crate) struct Config {
     /// 
     /// Defaults to `3000`
     pub(crate) port: u16,
+    /// The time in milliseconds a DataFrame should be allowed to be held in memory before being
+    /// dropped from the cache and written to disk. This time is measured from when the DataFrame
+    /// is added to the cache.
+    ///
+    /// Extending this period may increase server RAM usage, but also provide faster access to more
+    /// chats at a given time.
+    ///
+    /// This value defaults to `10_000`
+    pub(crate) cache_ttl: u64,
+    /// The time in milliseconds a DataFrame should be allowed to idle in memory before being
+    /// dropped from the cache and written to disk. This time is measured from when the DataFrame is
+    /// last accessed from the cache.
+    ///
+    /// Extending this period may increase server RAM usage, but also provide faster access to more
+    /// chats at a given time.
+    ///
+    /// This value defaults to `1_000`
+    pub(crate) cache_tti: u64
 }
 
 impl Default for Config {
@@ -25,6 +43,8 @@ impl Default for Config {
         Self {
             enable_federation: false,
             port: 3000,
+            cache_ttl: 10_000,
+            cache_tti: 1_000
         }
     }
 }
