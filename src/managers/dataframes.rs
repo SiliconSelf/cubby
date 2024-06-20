@@ -35,6 +35,29 @@ pub(crate) struct DataframeManager {
     cache: Cache<PathBuf, Arc<RwLock<DataFrame>>>
 }
 
+impl DataframeManager {
+    /// Create a new DataframeManager
+    pub(crate) fn new() -> Self {
+        let cache = Cache::builder()
+            .time_to_live(Duration::from_millis(PROGRAM_CONFIG.cache_ttl))
+            .time_to_idle(Duration::from_millis(PROGRAM_CONFIG.cache_tti))
+            .eviction_listener(|k, v, _r| {
+
+                write_dataframe_file(k, v)
+            })
+            .build();
+        Self {
+            cache
+        }
+    }
+    /// Retrieve a LazyFrame from the cache, inserting it into the cache if it does not already
+    /// exist.
+    pub(crate) async fn get<P: Into<PathBuf>>(&self, path: P) -> Arc<RwLock<DataFrame>> {
+        let key: PathBuf = path.into();
+        self.cache.get_with_by_ref(&key, open_dataframe_file(key.as_path())).await
+    }
+}
+
 /// Open an existing dataframe file, creating it if it doesn't already exist
 ///
 /// # Panics
@@ -65,27 +88,4 @@ fn write_dataframe_file(path: Arc<PathBuf>, frame: Arc<RwLock<DataFrame>>) {
     let mut file_handle = File::create(path).unwrap();
     let mut frame_handle = frame.write().unwrap();
     ParquetWriter::new(&mut file_handle).finish(&mut frame_handle).unwrap();
-}
-
-impl DataframeManager {
-    /// Create a new DataframeManager
-    pub(crate) fn new() -> Self {
-        let cache = Cache::builder()
-            .time_to_live(Duration::from_millis(PROGRAM_CONFIG.cache_ttl))
-            .time_to_idle(Duration::from_millis(PROGRAM_CONFIG.cache_tti))
-            .eviction_listener(|k, v, _r| {
-
-                write_dataframe_file(k, v)
-            })
-            .build();
-        Self {
-            cache
-        }
-    }
-    /// Retrieve a LazyFrame from the cache, inserting it into the cache if it does not already
-    /// exist.
-    pub(crate) async fn get<P: Into<PathBuf>>(&self, path: P) -> Arc<RwLock<DataFrame>> {
-        let key: PathBuf = path.into();
-        self.cache.get_with_by_ref(&key, open_dataframe_file(key.as_path())).await
-    }
 }
