@@ -3,6 +3,8 @@
 mod config;
 mod managers;
 
+mod api;
+
 use std::net::{IpAddr, SocketAddr};
 
 use config::PROGRAM_CONFIG;
@@ -23,7 +25,8 @@ async fn main() {
     // Create basic app
     let app = Router::new()
         .with_state(managers::dataframes::DataframeManager::new())
-        .route("/", get(|| async { "Hello, World!" }));
+        .route("/", get(|| async { "Hello, World!" }))
+        .nest("/_matrix/", api::client::accounts::create_router());
     // Create listener
     let socket_addr =
         SocketAddr::new(IpAddr::from([0, 0, 0, 0]), PROGRAM_CONFIG.port);

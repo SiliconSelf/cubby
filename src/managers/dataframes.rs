@@ -12,7 +12,7 @@ use polars::prelude::*;
 
 use crate::config::PROGRAM_CONFIG;
 
-/// This template exists to have a small DataFrame that can be easily cloned to a new file
+/// This template exists to have a small `DataFrame` that can be easily cloned to a new file
 /// instead of evaluating a new one every time we need to make a file.
 ///
 /// The performance savings from this are likely very minimal, but a server could find itself
@@ -27,30 +27,31 @@ static TEMPLATE_FRAME: Lazy<Vec<u8>> = Lazy::new(|| {
     buffer
 });
 
-/// Manages the in-use DataFrames.
+/// Manages the in-use `DataFrames`.
 ///
 /// This struct should only exist once as part of the state being managed by the axum router
 #[derive(Clone)]
 pub(crate) struct DataframeManager {
+    /// Cache that holds the active DataFrames to avoid excessive disk latency
     cache: Cache<PathBuf, Arc<RwLock<DataFrame>>>
 }
 
 impl DataframeManager {
-    /// Create a new DataframeManager
+    /// Create a new `DataframeManager`
     pub(crate) fn new() -> Self {
         let cache = Cache::builder()
             .time_to_live(Duration::from_millis(PROGRAM_CONFIG.cache_ttl))
             .time_to_idle(Duration::from_millis(PROGRAM_CONFIG.cache_tti))
             .eviction_listener(|k, v, _r| {
 
-                write_dataframe_file(k, v)
+                write_dataframe_file(k, v);
             })
             .build();
         Self {
             cache
         }
     }
-    /// Retrieve a LazyFrame from the cache, inserting it into the cache if it does not already
+    /// Retrieve a `LazyFrame` from the cache, inserting it into the cache if it does not already
     /// exist.
     pub(crate) async fn get<P: Into<PathBuf>>(&self, path: P) -> Arc<RwLock<DataFrame>> {
         let key: PathBuf = path.into();
@@ -66,7 +67,7 @@ impl DataframeManager {
 /// exist. Removal of this panic is planned for the future.
 async fn open_dataframe_file(path: &Path) -> Arc<RwLock<DataFrame>> {
     if !path.is_file() {
-        let mut file = File::create(&path)
+        let mut file = File::create(path)
             .expect("Failed to create new parquet file");
         file.write_all(&TEMPLATE_FRAME)
             .expect("Failed to write template to new parquet file");
@@ -75,7 +76,7 @@ async fn open_dataframe_file(path: &Path) -> Arc<RwLock<DataFrame>> {
     Arc::new(RwLock::new(ParquetReader::new(&mut file).finish().unwrap()))
 }
 
-/// Write a LazyFrame to disk
+/// Write a `LazyFrame` to disk
 ///
 /// This is invoked as the eviction listener in the cache and probably shouldn't be used
 /// anywhere else.
