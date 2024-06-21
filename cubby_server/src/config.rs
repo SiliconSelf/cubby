@@ -11,6 +11,7 @@ pub(crate) static PROGRAM_CONFIG: Lazy<Config> = Lazy::new(|| {
 });
 
 /// Represents an instance of the global program configuration
+#[derive(Debug)]
 pub(crate) struct Config {
     /// If the server should be allowed to federate with other servers.
     ///
@@ -45,7 +46,17 @@ pub(crate) struct Config {
     /// Where to store media that gets uploaded to the server.
     /// 
     /// This is optional and will default to `data_path/media/` if unset.
-    pub(crate) media_path: PathBuf
+    pub(crate) media_path: PathBuf,
+    /// How long generated devide ids should be.
+    /// 
+    /// You proably don't need to change this. Defaults to 16.
+    pub(crate) device_id_length: u8,
+    /// Is registration allowed on this server
+    /// 
+    /// You almost certainly do not want this to be enabled. Turning this on will turn your server into a bot farm, completely exposed to the cyber wilderness for anything with cURL installed to make an account and do what it pleases with your server.
+    /// 
+    /// It defaults to false, obviously.
+    pub(crate) allow_registration: bool
 }
 
 impl Default for Config {
@@ -59,7 +70,12 @@ impl Default for Config {
             cache_ttl: 10_000,
             cache_tti: 1_000,
             data_path: tempdir,
-            media_path: media_tempdir
+            media_path: media_tempdir,
+            device_id_length: 16,
+            #[cfg(debug_assertions)]
+            allow_registration: true,
+            #[cfg(not(debug_assertions))]
+            allow_registration: false
         }
     }
 }

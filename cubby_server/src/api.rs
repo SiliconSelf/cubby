@@ -2,27 +2,19 @@ use std::ops::Deref;
 
 use axum::{async_trait, body::{Body, Bytes}, extract::{FromRequest, Path, Request}, http::StatusCode, response::{IntoResponse, Response}, RequestPartsExt};
 use bytes::BytesMut;
-use ruma::api::{IncomingRequest, OutgoingResponse};
+use ruma::api::{error::MatrixError, IncomingRequest, OutgoingResponse};
 
 pub(crate) mod client;
 pub(crate) mod federation;
 pub(crate) mod appservice;
 
-pub(crate) struct RumaExtractor<T> {
-    pub(crate) body: T,
-    // pub(crate) sender_user: Option<OwnedUserId>,
-    // pub(crate) sender_device: Option<OwnedDeviceId>,
-    // pub(crate) sender_servername: Option<OwnedServerName>,
-    // // This is None when body is not a valid string
-    // pub(crate) json_body: Option<CanonicalJsonValue>,
-    // pub(crate) appservice_info: Option<RegistrationInfo>,
-}
+pub(crate) struct RumaExtractor<T>(T);
 
 impl<T> Deref for RumaExtractor<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
-        &self.body
+        &self.0
     }
 }
 
@@ -43,7 +35,7 @@ where
             .unwrap();
         let new_request: Request<Bytes> = Request::from_parts(parts, body_bytes);
         let new_t = T::try_from_http_request(new_request, &path_arguments).unwrap();
-        Ok(Self { body: new_t })
+        Ok(Self(new_t))
     }
 }
 
@@ -57,4 +49,22 @@ impl<T: OutgoingResponse> IntoResponse for RumaResponder<T> {
             StatusCode::INTERNAL_SERVER_ERROR.into_response()
         }
     }
+}
+
+pub(crate) trait IntoMatrixError {
+    fn into_error(self) -> MatrixError;
+}
+
+enum Error {
+    
+}
+
+struct Error {
+    code: axum::http::StatusCode,
+    matrix_code: String,
+    error: String
+}
+
+pub(crate) fn generate_error() {
+    
 }

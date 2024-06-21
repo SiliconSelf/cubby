@@ -5,7 +5,7 @@ mod managers;
 
 mod api;
 
-use std::net::{IpAddr, SocketAddr};
+use std::{net::{IpAddr, SocketAddr}, sync::Arc};
 
 use config::PROGRAM_CONFIG;
 #[cfg(all(not(target_env = "msvc"), feature = "jemalloc"))]
@@ -16,7 +16,7 @@ use tikv_jemallocator::Jemalloc;
 /// using polars
 static GLOBAL: Jemalloc = Jemalloc;
 
-use axum::{routing::get, Router};
+use axum::{routing::{get, post}, Router};
 
 #[tokio::main]
 async fn main() {
@@ -24,9 +24,9 @@ async fn main() {
     tracing_subscriber::fmt::init();
     // Create basic app
     let app = Router::new()
-        .with_state(managers::dataframes::DataframeManager::new())
         .route("/", get(|| async { "Hello, World!" }))
-        .nest("/_matrix/", api::client::accounts::create_router());
+        .route("/_matrix/client/v3/register", post(api::client::accounts::register))
+        .with_state(managers::dataframes::DataframeManager::new());
     // Create listener
     let socket_addr =
         SocketAddr::new(IpAddr::from([0, 0, 0, 0]), PROGRAM_CONFIG.port);

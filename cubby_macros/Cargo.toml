@@ -1,0 +1,18 @@
+[package]
+name = "cubby_macros"
+description = "Macros for cubby"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+proc-macro = true
+
+[lints]
+workspace = true
+
+[dependencies]
+ruma = { git = "https://github.com/ruma/ruma", branch = "main", features = [
+    "client-api-s",
+    "federation-api-s",
+    "compat"
+] }

@@ -3,8 +3,10 @@
 use std::fs::File;
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 use std::time::Duration;
+
+use parking_lot::RwLock;
 
 use moka::future::Cache;
 use once_cell::sync::Lazy;
@@ -18,10 +20,7 @@ use crate::config::PROGRAM_CONFIG;
 /// The performance savings from this are likely very minimal, but a server could find itself
 /// creating many new files in situations such as an influx of users.
 static TEMPLATE_FRAME: Lazy<Vec<u8>> = Lazy::new(|| {
-    let mut df = df!(
-        "foo" => &[1,2,3],
-        "bar" => &[1,2,3]
-    ).unwrap();
+    let mut df = df!("0" => [0]).unwrap();
     let mut buffer: Vec<u8> = Vec::new();
     ParquetWriter::new(&mut buffer).finish(&mut df).unwrap();
     buffer
@@ -53,8 +52,12 @@ impl DataframeManager {
     }
     /// Retrieve a `LazyFrame` from the cache, inserting it into the cache if it does not already
     /// exist.
+    /// 
+    /// Paths provided to this function are relative to the configured data_path
     pub(crate) async fn get<P: Into<PathBuf>>(&self, path: P) -> Arc<RwLock<DataFrame>> {
-        let key: PathBuf = path.into();
+        let mut key = PROGRAM_CONFIG.data_path.clone();
+        key.push(path.into());
+        tracing::info!("{key:?}");
         self.cache.get_with_by_ref(&key, open_dataframe_file(key.as_path())).await
     }
 }
@@ -87,6 +90,6 @@ async fn open_dataframe_file(path: &Path) -> Arc<RwLock<DataFrame>> {
 fn write_dataframe_file(path: Arc<PathBuf>, frame: Arc<RwLock<DataFrame>>) {
     let path = path.as_path();
     let mut file_handle = File::create(path).unwrap();
-    let mut frame_handle = frame.write().unwrap();
+    let mut frame_handle = frame.write();
     ParquetWriter::new(&mut file_handle).finish(&mut frame_handle).unwrap();
 }
