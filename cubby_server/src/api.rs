@@ -2,7 +2,7 @@ use std::ops::Deref;
 
 use axum::{async_trait, body::{Body, Bytes}, extract::{FromRequest, Path, Request}, http::StatusCode, response::{IntoResponse, Response}, RequestPartsExt};
 use bytes::BytesMut;
-use ruma::api::{error::MatrixError, IncomingRequest, OutgoingResponse};
+use ruma::api::{IncomingRequest, OutgoingResponse};
 
 pub(crate) mod client;
 pub(crate) mod federation;
@@ -49,22 +49,4 @@ impl<T: OutgoingResponse> IntoResponse for RumaResponder<T> {
             StatusCode::INTERNAL_SERVER_ERROR.into_response()
         }
     }
-}
-
-pub(crate) trait IntoMatrixError {
-    fn into_error(self) -> MatrixError;
-}
-
-enum Error {
-    
-}
-
-struct Error {
-    code: axum::http::StatusCode,
-    matrix_code: String,
-    error: String
-}
-
-pub(crate) fn generate_error() {
-    
 }

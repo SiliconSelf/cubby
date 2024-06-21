@@ -62,6 +62,14 @@ impl DataframeManager {
     }
 }
 
+// Remove everything from the cache, invoking the eviction listener for all files.
+// Hopefully disk IO is fast enough to not block a graceful shutdown for too long.
+impl Drop for DataframeManager {
+    fn drop(&mut self) {
+        self.cache.invalidate_all();
+    }
+}
+
 /// Open an existing dataframe file, creating it if it doesn't already exist
 ///
 /// # Panics

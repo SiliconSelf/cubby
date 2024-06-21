@@ -1,11 +1,11 @@
-#![doc = include_str!("../README.md")]
+#![doc = include_str!("../../README.md")]
 
 mod config;
 mod managers;
 
 mod api;
 
-use std::{net::{IpAddr, SocketAddr}, sync::Arc};
+use std::net::{IpAddr, SocketAddr};
 
 use config::PROGRAM_CONFIG;
 #[cfg(all(not(target_env = "msvc"), feature = "jemalloc"))]
