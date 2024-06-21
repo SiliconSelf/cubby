@@ -1,0 +1,17 @@
+[package]
+name = "cubby_lib"
+description = "Helper library for cubby"
+version = "0.1.0"
+edition = "2021"
+
+[lints]
+workspace = true
+
+[dependencies]
+axum = "0.7.5"
+bytes = "1.6.0"
+ruma = { git = "https://github.com/ruma/ruma", branch = "main", features = [
+    "client-api-s",
+    "federation-api-s",
+    "compat"
+] }

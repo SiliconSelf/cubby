@@ -521,6 +521,7 @@ version = "0.1.0"
 dependencies = [
  "axum",
  "bytes",
+ "cubby_lib",
  "cubby_macros",
  "figment",
  "moka",
@@ -535,6 +536,15 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "cubby_lib"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "bytes",
+ "ruma",
 ]
 
 [[package]]

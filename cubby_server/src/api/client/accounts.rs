@@ -1,10 +1,11 @@
 //! Accounts related endpoints
 
 use axum::extract::State;
+use cubby_lib::{RumaExtractor, RumaResponder};
 use rand::{distributions::Alphanumeric, Rng};
 use ruma::{api::client::account::register, OwnedDeviceId};
 
-use crate::{api::{RumaExtractor, RumaResponder}, config::PROGRAM_CONFIG, managers::dataframes::DataframeManager};
+use crate::{config::PROGRAM_CONFIG, managers::dataframes::DataframeManager};
 
 /// Register a new account with the homeserver
 /// 

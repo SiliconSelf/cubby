@@ -31,8 +31,8 @@ pub(crate) struct Config {
     /// This value defaults to `10_000`
     pub(crate) cache_ttl: u64,
     /// The time in milliseconds a `DataFrame` should be allowed to idle in memory before being
-    /// dropped from the cache and written to disk. This time is measured from when the `DataFrame` is
-    /// last accessed from the cache.
+    /// dropped from the cache and written to disk. This time is measured from when the `DataFrame`
+    /// is last accessed from the cache.
     ///
     /// Extending this period may increase server RAM usage, but also provide faster access to more
     /// chats at a given time.
@@ -41,7 +41,8 @@ pub(crate) struct Config {
     pub(crate) cache_tti: u64,
     /// Where to store the parquet files for the homeserver
     /// 
-    /// This defaults to a temporary directory that will NOT be deleted when the server shuts down. This is probably undesirable for your use case. You should change this directory.
+    /// This defaults to a temporary directory that will NOT be deleted when the server shuts down.
+    /// This is probably undesirable for your use case. You should change this directory.
     pub(crate) data_path: PathBuf,
     /// Where to store media that gets uploaded to the server.
     /// 
@@ -53,7 +54,9 @@ pub(crate) struct Config {
     pub(crate) device_id_length: u8,
     /// Is registration allowed on this server
     /// 
-    /// You almost certainly do not want this to be enabled. Turning this on will turn your server into a bot farm, completely exposed to the cyber wilderness for anything with cURL installed to make an account and do what it pleases with your server.
+    /// You almost certainly do not want this to be enabled. Turning this on will turn your server
+    /// into a bot farm, completely exposed to the cyber wilderness for anything with cURL
+    /// installed to make an account and do what it pleases with your server.
     /// 
     /// It defaults to false, obviously.
     pub(crate) allow_registration: bool

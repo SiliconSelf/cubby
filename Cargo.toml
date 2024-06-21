@@ -1,7 +1,8 @@
 [workspace]
 members = [
     "cubby_macros",
-    "cubby_server"
+    "cubby_server",
+    "cubby_lib"
 ]
 resolver = "2"
 
