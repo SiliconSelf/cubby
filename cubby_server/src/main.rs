@@ -16,7 +16,10 @@ use tikv_jemallocator::Jemalloc;
 /// using polars
 static GLOBAL: Jemalloc = Jemalloc;
 
-use axum::{routing::{get, post}, Router};
+use axum::{
+    routing::{get, post},
+    Router,
+};
 
 #[tokio::main]
 async fn main() {
@@ -25,7 +28,10 @@ async fn main() {
     // Create basic app
     let app = Router::new()
         .route("/", get(|| async { "Hello, World!" }))
-        .route("/_matrix/client/v3/register", post(api::client::accounts::register))
+        .route(
+            "/_matrix/client/v3/register",
+            post(api::client::accounts::register),
+        )
         .with_state(managers::dataframes::DataframeManager::new());
     // Create listener
     let socket_addr =

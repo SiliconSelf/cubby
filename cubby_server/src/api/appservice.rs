@@ -1,5 +1,5 @@
-use ruma::api::appservice::Registration;
 use regex::RegexSet;
+use ruma::api::appservice::Registration;
 
 /// Compiled regular expressions for a namespace.
 #[derive(Clone, Debug)]
