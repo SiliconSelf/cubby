@@ -18,9 +18,14 @@ pub(crate) async fn endpoint(
         .await
         .select(&[col("username")])
         .filter(col("username").eq(lit(req.username)))
-        // .filter((col("username") == req.username.as_str().into()).into())
         .collect()
         .unwrap();
-    println!("{query:?}");
-    todo!();
+    if query
+        .column("username")
+        .unwrap()
+        .is_empty() {
+            RumaResponder(Response::new(true))
+        } else {
+            RumaResponder(Response::new(false))
+        }
 }

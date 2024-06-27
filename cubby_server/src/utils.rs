@@ -1,6 +1,5 @@
-use std::sync::Arc;
 
-use polars::{datatypes::{DataType, RevMapping}, df, lazy::{dsl::col, frame::IntoLazy}};
+use polars::{datatypes::DataType, df, lazy::{dsl::col, frame::IntoLazy}};
 
 use crate::managers::dataframes::DataframeManager;
 
