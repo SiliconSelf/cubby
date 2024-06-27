@@ -1,16 +1,12 @@
 //! Manages the dataframes used by the program
 
 use std::{
-    fs::File,
-    io::Write,
-    path::{Path, PathBuf},
-    sync::Arc,
-    time::Duration,
+    collections::HashMap, fs::File, io::Write, path::PathBuf
 };
 
-use moka::future::Cache;
+use crossbeam_channel::{unbounded, Sender};
 use once_cell::sync::Lazy;
-use parking_lot::RwLock;
+use parking_lot::{Mutex, RwLock};
 use polars::prelude::*;
 
 use crate::config::PROGRAM_CONFIG;
@@ -29,86 +25,88 @@ static TEMPLATE_FRAME: Lazy<Vec<u8>> = Lazy::new(|| {
     buffer
 });
 
+// This is fucking heinous
+static LOCKS: Lazy<Arc<RwLock<HashMap<PathBuf, Mutex<()>>>>> = Lazy::new(|| {
+    Arc::new(RwLock::new(HashMap::new()))
+});
+
 /// Manages the in-use `DataFrames`.
 ///
 /// This struct should only exist once as part of the state being managed by the
 /// axum router
 #[derive(Clone)]
-pub(crate) struct DataframeManager {
-    /// Cache that holds the active DataFrames to avoid excessive disk latency
-    cache: Cache<PathBuf, Arc<RwLock<DataFrame>>>,
-}
+pub(crate) struct DataframeManager;
 
 impl DataframeManager {
     /// Create a new `DataframeManager`
     pub(crate) fn new() -> Self {
-        let cache = Cache::builder()
-            .time_to_live(Duration::from_millis(PROGRAM_CONFIG.cache_ttl))
-            .time_to_idle(Duration::from_millis(PROGRAM_CONFIG.cache_tti))
-            .eviction_listener(|k, v, _r| {
-                write_dataframe_file(k, v);
-            })
-            .build();
-        Self {
-            cache,
-        }
+        Self {}
     }
-
     /// Retrieve a `LazyFrame` from the cache, inserting it into the cache if it
     /// does not already exist.
     ///
     /// Paths provided to this function are relative to the configured data_path
-    pub(crate) async fn get<P: Into<PathBuf>>(
+    /// 
+    /// This function is intended for read-only access to parquet data. For write access,
+    /// please use get_write to take advantage of extra sync protections.
+    pub(crate) async fn get_lazy<P: Into<PathBuf>>(
         &self,
         path: P,
-    ) -> Arc<RwLock<DataFrame>> {
+    ) -> LazyFrame {
+        scan_file(path).await
+    }
+    /// Returns an eager DataFrame suitable for writing
+    pub(crate) async fn get_write<P: Into<PathBuf>>(&self, path: P) -> (DataFrame, Sender<DataFrame>) {
         let mut key = PROGRAM_CONFIG.data_path.clone();
         key.push(path.into());
-        tracing::info!("{key:?}");
-        self.cache
-            .get_with_by_ref(&key, open_dataframe_file(key.as_path()))
+        let scan = scan_file(&key)
             .await
+            .collect()
+            .unwrap();
+        let (tx, rx) = unbounded::<DataFrame>();
+        tokio::spawn(async move {
+            tracing::info!("Task spawned");
+            // Block until we receive the new data to write
+            let Ok(mut value) = rx.recv() else {
+                tracing::warn!("Receiving {key:?} failed! Did the endpoint give up?");
+                return
+            };
+            tracing::info!("Data received");
+            tracing::info!("Received returned LazyFrame for {key:?}");
+            // Mom said it's my turn on the Mutex
+            let mut handle = LOCKS.write();
+            let _lock = match handle.get(&key) {
+                Some(m) => { m.lock() },
+                None => {
+                    handle.insert(key.clone(), Mutex::new(()));
+                    handle.get(&key).unwrap().lock()
+                }
+            };
+            // Write new data to path
+            let mut file = File::create(key).unwrap();
+            ParquetWriter::new(&mut file).finish(&mut value).unwrap();
+            tracing::info!("Wrote the thing");
+        });
+        (scan, tx)
     }
 }
 
-// Remove everything from the cache, invoking the eviction listener for all
-// files. Hopefully disk IO is fast enough to not block a graceful shutdown for
-// too long.
-impl Drop for DataframeManager {
-    fn drop(&mut self) {
-        self.cache.invalidate_all();
-    }
-}
-
-/// Open an existing dataframe file, creating it if it doesn't already exist
-///
-/// # Panics
-///
-/// This function will panic if there is an issue creating a parquet file that
-/// doesn't already exist. Removal of this panic is planned for the future.
-async fn open_dataframe_file(path: &Path) -> Arc<RwLock<DataFrame>> {
-    if !path.is_file() {
-        let mut file =
-            File::create(path).expect("Failed to create new parquet file");
+/// Scan a parquet file on disk, creating it from the TEMPLATE_FRAME if it does not already exist.
+/// 
+/// Paths provided to this function are relative to the configured PROGRAM_CONFIG.data_path.
+async fn scan_file<P: Into<PathBuf>>(path: P) -> LazyFrame {
+    let mut key = PROGRAM_CONFIG.data_path.clone();
+    key.push(path.into());
+    tracing::info!("Scanning parquet file {key:?}");
+    if !key.is_file() {
+        tracing::info!("Creating new parquet file: {key:?}");
+        let mut file = File::create(&key)
+            .expect("Failed to create new parquet file");
         file.write_all(&TEMPLATE_FRAME)
             .expect("Failed to write template to new parquet file");
     }
-    let mut file = File::open(path).unwrap();
-    Arc::new(RwLock::new(ParquetReader::new(&mut file).finish().unwrap()))
-}
-
-/// Write a `LazyFrame` to disk
-///
-/// This is invoked as the eviction listener in the cache and probably shouldn't
-/// be used anywhere else.
-///
-/// # Panics
-///
-/// This function will panic if anything at all goes wrong. It needs to be made
-/// more reliable later.
-fn write_dataframe_file(path: Arc<PathBuf>, frame: Arc<RwLock<DataFrame>>) {
-    let path = path.as_path();
-    let mut file_handle = File::create(path).unwrap();
-    let mut frame_handle = frame.write();
-    ParquetWriter::new(&mut file_handle).finish(&mut frame_handle).unwrap();
+    let scan_args = ScanArgsParquet::default();
+    let lf = LazyFrame::scan_parquet(key, scan_args)
+        .expect("Failed to scan parquet file");
+    lf
 }

@@ -4,6 +4,7 @@ mod config;
 mod managers;
 
 mod api;
+mod utils;
 
 use std::net::{IpAddr, SocketAddr};
 
@@ -25,12 +26,17 @@ use axum::{
 async fn main() {
     // Initialize logging
     tracing_subscriber::fmt::init();
+    utils::setup_dataframes().await;
     // Create basic app
     let app = Router::new()
         .route("/", get(|| async { "Hello, World!" }))
         .route(
-            "/_matrix/client/v3/register",
+            "/client/v3/register",
             post(api::client::accounts::register),
+        )
+        .route(
+            "/client/v3/register/available",
+            get(api::client::accounts::get_username_availability::endpoint)
         )
         .with_state(managers::dataframes::DataframeManager::new());
     // Create listener

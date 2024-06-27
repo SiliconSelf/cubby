@@ -17,6 +17,7 @@ use axum::{
 use bytes::BytesMut;
 use ruma::api::{IncomingRequest, OutgoingResponse};
 
+/// Extractor for pulling Ruma request structs from the Axum request body
 pub struct RumaExtractor<T>(pub T);
 
 impl<T> Deref for RumaExtractor<T> {
@@ -51,6 +52,7 @@ where
     }
 }
 
+/// Responder for wrapping Ruma responses to use with Axum
 pub struct RumaResponder<T>(pub T);
 
 impl<T: OutgoingResponse> IntoResponse for RumaResponder<T> {
