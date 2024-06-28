@@ -66,7 +66,7 @@ impl LockManager {
                     }
                     // A lock has been released
                     Ok(m) => {
-                        tracing::info!("Dropping lock for {m:?}");
+                        tracing::debug!("Dropping lock for {m:?}");
                         locks.remove(&m);
                         // Skip to the next iteration of the loop in case
                         // there's more locks to release
@@ -98,7 +98,7 @@ impl LockManager {
                             continue;
                         }
                         // Issue a new lock
-                        tracing::info!("Locking {k:?}");
+                        tracing::debug!("Locking {k:?}");
                         locks.insert(k.clone());
                         let lock = FileLock {
                             path: k.to_owned(),
@@ -171,7 +171,7 @@ impl DataframeManager {
         let scan = scan_file(&key).await.collect().unwrap();
         let (tx, rx) = unbounded::<DataFrame>();
         tokio::spawn(async move {
-            tracing::info!("Task spawned");
+            tracing::debug!("Task spawned");
             // Block until we receive the new data to write
             let Ok(mut value) = rx.recv() else {
                 tracing::warn!(
@@ -179,8 +179,8 @@ impl DataframeManager {
                 );
                 return;
             };
-            tracing::info!("Data received");
-            tracing::info!("Received returned LazyFrame for {key:?}");
+            tracing::debug!("Data received");
+            tracing::debug!("Received returned LazyFrame for {key:?}");
             // Mom said it's my turn on the Mutex
             let mut handle = LOCKS.write();
             let _lock = if let Some(m) = handle.get(&key) { m.lock() } else {
@@ -190,7 +190,7 @@ impl DataframeManager {
             // Write new data to path
             let mut file = File::create(key).unwrap();
             ParquetWriter::new(&mut file).finish(&mut value).unwrap();
-            tracing::info!("Wrote the thing");
+            tracing::debug!("Wrote the thing");
         });
         (scan, tx)
     }
@@ -204,9 +204,9 @@ impl DataframeManager {
 async fn scan_file<P: Into<PathBuf>>(path: P) -> LazyFrame {
     let mut key = PROGRAM_CONFIG.data_path.clone();
     key.push(path.into());
-    tracing::info!("Scanning parquet file {key:?}");
+    tracing::debug!("Scanning parquet file {key:?}");
     if !key.is_file() {
-        tracing::info!("Creating new parquet file: {key:?}");
+        tracing::debug!("Creating new parquet file: {key:?}");
         let mut file =
             File::create(&key).expect("Failed to create new parquet file");
         file.write_all(&TEMPLATE_FRAME)
