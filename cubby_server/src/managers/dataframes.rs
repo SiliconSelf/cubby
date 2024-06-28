@@ -92,7 +92,7 @@ impl LockManager {
                 };
                 // Assign new locks based on any demand
                 if !queue.is_empty() {
-                    for (k, v) in queue.iter_mut() {
+                    for (k, v) in &mut queue {
                         // Skip ahead to the next file if this one is locked
                         if locks.contains(k) {
                             continue;
@@ -149,10 +149,10 @@ impl DataframeManager {
     /// Retrieve a `LazyFrame` from the cache, inserting it into the cache if it
     /// does not already exist.
     ///
-    /// Paths provided to this function are relative to the configured data_path
+    /// Paths provided to this function are relative to the configured `data_path`
     ///
     /// This function is intended for read-only access to parquet data. For
-    /// write access, please use get_write to take advantage of extra sync
+    /// write access, please use `get_write` to take advantage of extra sync
     /// protections.
     pub(crate) async fn get_lazy<P: Into<PathBuf>>(
         &self,
@@ -161,7 +161,7 @@ impl DataframeManager {
         scan_file(path).await
     }
 
-    /// Returns an eager DataFrame suitable for writing
+    /// Returns an eager `DataFrame` suitable for writing
     pub(crate) async fn get_write<P: Into<PathBuf>>(
         &self,
         path: P,
@@ -183,12 +183,9 @@ impl DataframeManager {
             tracing::info!("Received returned LazyFrame for {key:?}");
             // Mom said it's my turn on the Mutex
             let mut handle = LOCKS.write();
-            let _lock = match handle.get(&key) {
-                Some(m) => m.lock(),
-                None => {
-                    handle.insert(key.clone(), Mutex::new(()));
-                    handle.get(&key).unwrap().lock()
-                }
+            let _lock = if let Some(m) = handle.get(&key) { m.lock() } else {
+                handle.insert(key.clone(), Mutex::new(()));
+                handle.get(&key).unwrap().lock()
             };
             // Write new data to path
             let mut file = File::create(key).unwrap();
@@ -199,11 +196,11 @@ impl DataframeManager {
     }
 }
 
-/// Scan a parquet file on disk, creating it from the TEMPLATE_FRAME if it does
+/// Scan a parquet file on disk, creating it from the `TEMPLATE_FRAME` if it does
 /// not already exist.
 ///
 /// Paths provided to this function are relative to the configured
-/// PROGRAM_CONFIG.data_path.
+/// `PROGRAM_CONFIG.data_path`.
 async fn scan_file<P: Into<PathBuf>>(path: P) -> LazyFrame {
     let mut key = PROGRAM_CONFIG.data_path.clone();
     key.push(path.into());
@@ -216,7 +213,7 @@ async fn scan_file<P: Into<PathBuf>>(path: P) -> LazyFrame {
             .expect("Failed to write template to new parquet file");
     }
     let scan_args = ScanArgsParquet::default();
-    let lf = LazyFrame::scan_parquet(key, scan_args)
-        .expect("Failed to scan parquet file");
-    lf
+    
+    LazyFrame::scan_parquet(key, scan_args)
+        .expect("Failed to scan parquet file")
 }

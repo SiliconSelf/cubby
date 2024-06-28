@@ -67,7 +67,7 @@ where
     }
 }
 
-/// Derive macro for the IntoMatrixError trait
+/// Derive macro for the `IntoMatrixError` trait
 #[proc_macro_derive(IntoMatrixError, attributes(matrix_error))]
 pub fn derive_into_matrix_error(item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as DeriveInput);
