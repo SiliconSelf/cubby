@@ -71,7 +71,7 @@ where
 #[proc_macro_derive(IntoMatrixError, attributes(matrix_error))]
 pub fn derive_into_matrix_error(item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as DeriveInput);
-    let mut file = std::fs::File::create("macro_output.txt").unwrap();
+    let mut file = std::fs::File::create("/tmp/macro_output.txt").unwrap();
     file.write_all(format!("{:#?}", input.clone()).as_bytes())
         .expect("Failed to write log");
     // Assertions that guarantee we actually can derive thiw

@@ -18,7 +18,7 @@ pub(crate) enum EndpointErrors {
 }
 
 impl IntoMatrixError for EndpointErrors {
-    fn into_matrix_error(self) -> ruma::api::error::MatrixError {
+    fn into_matrix_error(self) -> MatrixError {
         match self {
             EndpointErrors::InUse => MatrixError {
                 status_code: StatusCode::BAD_REQUEST,
