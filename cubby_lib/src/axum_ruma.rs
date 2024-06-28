@@ -17,6 +17,8 @@ use axum::{
 use bytes::BytesMut;
 use ruma::api::{IncomingRequest, OutgoingResponse};
 
+use crate::IntoMatrixError;
+
 /// Extractor for pulling Ruma request structs from the Axum request body
 pub struct RumaExtractor<T>(pub T);
 
@@ -53,14 +55,28 @@ where
 }
 
 /// Responder for wrapping Ruma responses to use with Axum
-pub struct RumaResponder<T>(pub T);
+pub enum RumaResponder<T, E> {
+    /// The happy path
+    Ok(T),
+    /// Some error occured
+    Err(E)
+}
 
-impl<T: OutgoingResponse> IntoResponse for RumaResponder<T> {
+impl<T, E> IntoResponse for RumaResponder<T, E> where
+    T: OutgoingResponse,
+    E: IntoMatrixError
+{
     fn into_response(self) -> Response {
-        if let Ok(res) = self.0.try_into_http_response::<BytesMut>() {
-            res.map(BytesMut::freeze).map(Body::from).into_response()
-        } else {
-            StatusCode::INTERNAL_SERVER_ERROR.into_response()
-        }
+        let Ok(res) = (match self {
+            RumaResponder::Ok(t) => {
+                t.try_into_http_response::<BytesMut>()
+            },
+            RumaResponder::Err(e) => {
+                e.into_matrix_error().try_into_http_response::<BytesMut>()
+            },
+        }) else {
+            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+        };
+        res.map(BytesMut::freeze).map(Body::from).into_response()
     }
 }
