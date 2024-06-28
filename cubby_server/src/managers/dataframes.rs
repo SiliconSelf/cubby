@@ -1,15 +1,18 @@
 //! Manages the dataframes used by the program
 
 use std::{
-    collections::HashMap, fs::File, io::Write, path::PathBuf
+    collections::{HashMap, HashSet, VecDeque}, fs::File, io::Write, path::PathBuf
 };
 
-use crossbeam_channel::{unbounded, Sender};
+use crossbeam_channel::{unbounded, RecvTimeoutError, Sender};
 use once_cell::sync::Lazy;
 use parking_lot::{Mutex, RwLock};
 use polars::prelude::*;
+use tokio::sync::oneshot;
 
 use crate::config::PROGRAM_CONFIG;
+
+use std::time::Duration;
 
 /// This template exists to have a small `DataFrame` that can be easily cloned
 /// to a new file instead of evaluating a new one every time we need to make a
@@ -29,6 +32,92 @@ static TEMPLATE_FRAME: Lazy<Vec<u8>> = Lazy::new(|| {
 static LOCKS: Lazy<Arc<RwLock<HashMap<PathBuf, Mutex<()>>>>> = Lazy::new(|| {
     Arc::new(RwLock::new(HashMap::new()))
 });
+
+struct LockManager {
+    locks: HashMap<PathBuf, Mutex<()>>,
+    manager_tx: Sender<(PathBuf, oneshot::Sender<FileLock>)>
+}
+
+impl LockManager {
+    fn get_lock() -> FileLock {
+        todo!();
+    }
+    async fn new() -> Self {
+        // Create channels to the other thread
+        let (manager_tx, manager_rx) = unbounded::<(PathBuf, oneshot::Sender<FileLock>)>();
+        // Spawn the task
+        tokio::spawn(async move {
+            let (lock_tx, lock_rx) = unbounded::<PathBuf>();
+            let mut locks: HashSet<PathBuf> = HashSet::new();
+            let mut queue: HashMap<PathBuf, VecDeque<oneshot::Sender<FileLock>>> = HashMap::new();
+            loop {
+                // See if any locks have been released
+                match lock_rx.recv_timeout(Duration::from_millis(1)) {
+                    Err(RecvTimeoutError::Disconnected) => { panic!("Lock Manager became disconnected"); }
+                    Err(RecvTimeoutError::Timeout) => { /* Nothing received, nothing to do */ }
+                    // A lock has been released
+                    Ok(m) => {
+                        tracing::info!("Dropping lock for {m:?}");
+                        locks.remove(&m);
+                        // Skip to the next iteration of the loop in case there's more locks to release
+                        continue;
+                    },
+                };
+                match manager_rx.recv_timeout(Duration::from_millis(1)) {
+                    Err(RecvTimeoutError::Disconnected) => { panic!("Lock Manager became disconnected"); },
+                    Err(RecvTimeoutError::Timeout) => { /* Nothing received, nothing to do */}
+                    // A lock has been requested
+                    Ok((p, s)) => {
+                        if let Some(q) = queue.get_mut(&p) {
+                            q.push_back(s);
+                        } else {
+                            let mut new_queue = VecDeque::new();
+                            new_queue.push_back(s);
+                            queue.insert(p, new_queue);
+                        }
+                    },
+                };
+                // Assign new locks based on any demand
+                if !queue.is_empty() {
+                    for (k, v) in queue.iter_mut() {
+                        // Skip ahead to the next file if this one is locked
+                        if locks.contains(k) {
+                            continue;
+                        }
+                        // Issue a new lock
+                        tracing::info!("Locking {k:?}");
+                        locks.insert(k.clone());
+                        let lock = FileLock {
+                            path: k.to_owned(),
+                            channel: lock_tx.clone()
+                        };
+                        v.pop_front()
+                            .expect("We already checked that this isn't empty")
+                            .send(lock)
+                            .expect("Failed to send new file lock");
+                    }
+                }
+            };
+        });
+        Self {
+            locks: HashMap::new(),
+            manager_tx
+        }
+    }
+}
+
+#[derive(Debug)]
+struct FileLock {
+    path: PathBuf,
+    channel: Sender<PathBuf>
+}
+
+impl Drop for FileLock {
+    fn drop(&mut self) {
+        self.channel.send(self.path.clone())
+            .expect("Failed to send message to unlock my path");
+    }
+}
 
 /// Manages the in-use `DataFrames`.
 ///
