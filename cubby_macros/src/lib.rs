@@ -3,11 +3,13 @@
 use std::{any::TypeId, io::Write};
 
 use proc_macro::TokenStream;
-use syn::{parse::{Parse, ParseStream}, parse_macro_input, DeriveInput, Ident, LitStr, Token};
-use syn::parse::Result;
+use syn::{
+    parse::{Parse, ParseStream, Result},
+    parse_macro_input, DeriveInput, Ident, LitStr, Token,
+};
 
 /// Contains a Key/Value pair from a helper attribute
-/// 
+///
 /// [Thanks, Charles](https://gitlab.computer.surgery/charles/far/-/blob/5a8e928c045cddedb8866ab51c24e228e9417c8f/macros/src/lib.rs#L87-142)
 /// Parses attributes of the typical form
 struct AttrNameValue<V> {
@@ -65,13 +67,11 @@ where
     }
 }
 
-
 /// Derive macro for the IntoMatrixError trait
 #[proc_macro_derive(IntoMatrixError, attributes(matrix_error))]
 pub fn derive_into_matrix_error(item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as DeriveInput);
-    let mut file = std::fs::File::create("macro_output.txt")
-        .unwrap();
+    let mut file = std::fs::File::create("macro_output.txt").unwrap();
     file.write_all(format!("{:#?}", input.clone()).as_bytes())
         .expect("Failed to write log");
     // Assertions that guarantee we actually can derive thiw

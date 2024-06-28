@@ -12,8 +12,12 @@ pub(crate) mod get_username_availability;
 
 #[derive(IntoMatrixError)]
 pub(crate) enum ReigstrationErrors {
-    #[matrix_error(statuscode = "404", errcode = "M_WHATEVER", error = "An error")]
-    Test
+    #[matrix_error(
+        statuscode = "404",
+        errcode = "M_WHATEVER",
+        error = "An error"
+    )]
+    Test,
 }
 
 /// Register a new account with the homeserver

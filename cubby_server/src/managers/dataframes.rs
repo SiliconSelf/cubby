@@ -1,7 +1,11 @@
 //! Manages the dataframes used by the program
 
 use std::{
-    collections::{HashMap, HashSet, VecDeque}, fs::File, io::Write, path::PathBuf
+    collections::{HashMap, HashSet, VecDeque},
+    fs::File,
+    io::Write,
+    path::PathBuf,
+    time::Duration,
 };
 
 use crossbeam_channel::{unbounded, RecvTimeoutError, Sender};
@@ -11,8 +15,6 @@ use polars::prelude::*;
 use tokio::sync::oneshot;
 
 use crate::config::PROGRAM_CONFIG;
-
-use std::time::Duration;
 
 /// This template exists to have a small `DataFrame` that can be easily cloned
 /// to a new file instead of evaluating a new one every time we need to make a
@@ -29,43 +31,54 @@ static TEMPLATE_FRAME: Lazy<Vec<u8>> = Lazy::new(|| {
 });
 
 // This is fucking heinous
-static LOCKS: Lazy<Arc<RwLock<HashMap<PathBuf, Mutex<()>>>>> = Lazy::new(|| {
-    Arc::new(RwLock::new(HashMap::new()))
-});
+static LOCKS: Lazy<Arc<RwLock<HashMap<PathBuf, Mutex<()>>>>> =
+    Lazy::new(|| Arc::new(RwLock::new(HashMap::new())));
 
 struct LockManager {
     locks: HashMap<PathBuf, Mutex<()>>,
-    manager_tx: Sender<(PathBuf, oneshot::Sender<FileLock>)>
+    manager_tx: Sender<(PathBuf, oneshot::Sender<FileLock>)>,
 }
 
 impl LockManager {
     fn get_lock() -> FileLock {
         todo!();
     }
+
     async fn new() -> Self {
         // Create channels to the other thread
-        let (manager_tx, manager_rx) = unbounded::<(PathBuf, oneshot::Sender<FileLock>)>();
+        let (manager_tx, manager_rx) =
+            unbounded::<(PathBuf, oneshot::Sender<FileLock>)>();
         // Spawn the task
         tokio::spawn(async move {
             let (lock_tx, lock_rx) = unbounded::<PathBuf>();
             let mut locks: HashSet<PathBuf> = HashSet::new();
-            let mut queue: HashMap<PathBuf, VecDeque<oneshot::Sender<FileLock>>> = HashMap::new();
+            let mut queue: HashMap<
+                PathBuf,
+                VecDeque<oneshot::Sender<FileLock>>,
+            > = HashMap::new();
             loop {
                 // See if any locks have been released
                 match lock_rx.recv_timeout(Duration::from_millis(1)) {
-                    Err(RecvTimeoutError::Disconnected) => { panic!("Lock Manager became disconnected"); }
-                    Err(RecvTimeoutError::Timeout) => { /* Nothing received, nothing to do */ }
+                    Err(RecvTimeoutError::Disconnected) => {
+                        panic!("Lock Manager became disconnected");
+                    }
+                    Err(RecvTimeoutError::Timeout) => { /* Nothing received, nothing to do */
+                    }
                     // A lock has been released
                     Ok(m) => {
                         tracing::info!("Dropping lock for {m:?}");
                         locks.remove(&m);
-                        // Skip to the next iteration of the loop in case there's more locks to release
+                        // Skip to the next iteration of the loop in case
+                        // there's more locks to release
                         continue;
-                    },
+                    }
                 };
                 match manager_rx.recv_timeout(Duration::from_millis(1)) {
-                    Err(RecvTimeoutError::Disconnected) => { panic!("Lock Manager became disconnected"); },
-                    Err(RecvTimeoutError::Timeout) => { /* Nothing received, nothing to do */}
+                    Err(RecvTimeoutError::Disconnected) => {
+                        panic!("Lock Manager became disconnected");
+                    }
+                    Err(RecvTimeoutError::Timeout) => { /* Nothing received, nothing to do */
+                    }
                     // A lock has been requested
                     Ok((p, s)) => {
                         if let Some(q) = queue.get_mut(&p) {
@@ -75,7 +88,7 @@ impl LockManager {
                             new_queue.push_back(s);
                             queue.insert(p, new_queue);
                         }
-                    },
+                    }
                 };
                 // Assign new locks based on any demand
                 if !queue.is_empty() {
@@ -89,7 +102,7 @@ impl LockManager {
                         locks.insert(k.clone());
                         let lock = FileLock {
                             path: k.to_owned(),
-                            channel: lock_tx.clone()
+                            channel: lock_tx.clone(),
                         };
                         v.pop_front()
                             .expect("We already checked that this isn't empty")
@@ -97,11 +110,11 @@ impl LockManager {
                             .expect("Failed to send new file lock");
                     }
                 }
-            };
+            }
         });
         Self {
             locks: HashMap::new(),
-            manager_tx
+            manager_tx,
         }
     }
 }
@@ -109,12 +122,13 @@ impl LockManager {
 #[derive(Debug)]
 struct FileLock {
     path: PathBuf,
-    channel: Sender<PathBuf>
+    channel: Sender<PathBuf>,
 }
 
 impl Drop for FileLock {
     fn drop(&mut self) {
-        self.channel.send(self.path.clone())
+        self.channel
+            .send(self.path.clone())
             .expect("Failed to send message to unlock my path");
     }
 }
@@ -131,41 +145,46 @@ impl DataframeManager {
     pub(crate) fn new() -> Self {
         Self {}
     }
+
     /// Retrieve a `LazyFrame` from the cache, inserting it into the cache if it
     /// does not already exist.
     ///
     /// Paths provided to this function are relative to the configured data_path
-    /// 
-    /// This function is intended for read-only access to parquet data. For write access,
-    /// please use get_write to take advantage of extra sync protections.
+    ///
+    /// This function is intended for read-only access to parquet data. For
+    /// write access, please use get_write to take advantage of extra sync
+    /// protections.
     pub(crate) async fn get_lazy<P: Into<PathBuf>>(
         &self,
         path: P,
     ) -> LazyFrame {
         scan_file(path).await
     }
+
     /// Returns an eager DataFrame suitable for writing
-    pub(crate) async fn get_write<P: Into<PathBuf>>(&self, path: P) -> (DataFrame, Sender<DataFrame>) {
+    pub(crate) async fn get_write<P: Into<PathBuf>>(
+        &self,
+        path: P,
+    ) -> (DataFrame, Sender<DataFrame>) {
         let mut key = PROGRAM_CONFIG.data_path.clone();
         key.push(path.into());
-        let scan = scan_file(&key)
-            .await
-            .collect()
-            .unwrap();
+        let scan = scan_file(&key).await.collect().unwrap();
         let (tx, rx) = unbounded::<DataFrame>();
         tokio::spawn(async move {
             tracing::info!("Task spawned");
             // Block until we receive the new data to write
             let Ok(mut value) = rx.recv() else {
-                tracing::warn!("Receiving {key:?} failed! Did the endpoint give up?");
-                return
+                tracing::warn!(
+                    "Receiving {key:?} failed! Did the endpoint give up?"
+                );
+                return;
             };
             tracing::info!("Data received");
             tracing::info!("Received returned LazyFrame for {key:?}");
             // Mom said it's my turn on the Mutex
             let mut handle = LOCKS.write();
             let _lock = match handle.get(&key) {
-                Some(m) => { m.lock() },
+                Some(m) => m.lock(),
                 None => {
                     handle.insert(key.clone(), Mutex::new(()));
                     handle.get(&key).unwrap().lock()
@@ -180,17 +199,19 @@ impl DataframeManager {
     }
 }
 
-/// Scan a parquet file on disk, creating it from the TEMPLATE_FRAME if it does not already exist.
-/// 
-/// Paths provided to this function are relative to the configured PROGRAM_CONFIG.data_path.
+/// Scan a parquet file on disk, creating it from the TEMPLATE_FRAME if it does
+/// not already exist.
+///
+/// Paths provided to this function are relative to the configured
+/// PROGRAM_CONFIG.data_path.
 async fn scan_file<P: Into<PathBuf>>(path: P) -> LazyFrame {
     let mut key = PROGRAM_CONFIG.data_path.clone();
     key.push(path.into());
     tracing::info!("Scanning parquet file {key:?}");
     if !key.is_file() {
         tracing::info!("Creating new parquet file: {key:?}");
-        let mut file = File::create(&key)
-            .expect("Failed to create new parquet file");
+        let mut file =
+            File::create(&key).expect("Failed to create new parquet file");
         file.write_all(&TEMPLATE_FRAME)
             .expect("Failed to write template to new parquet file");
     }

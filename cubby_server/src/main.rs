@@ -30,13 +30,10 @@ async fn main() {
     // Create basic app
     let app = Router::new()
         .route("/", get(|| async { "Hello, World!" }))
-        .route(
-            "/client/v3/register",
-            post(api::client::accounts::register),
-        )
+        .route("/client/v3/register", post(api::client::accounts::register))
         .route(
             "/client/v3/register/available",
-            get(api::client::accounts::get_username_availability::endpoint)
+            get(api::client::accounts::get_username_availability::endpoint),
         )
         .with_state(managers::dataframes::DataframeManager::new());
     // Create listener
