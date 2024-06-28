@@ -30,7 +30,10 @@ async fn main() {
     // Create basic app
     let app = Router::new()
         .route("/", get(|| async { "Hello, World!" }))
-        .route("/client/v3/register", post(api::client::accounts::register::endpoint))
+        .route(
+            "/client/v3/register",
+            post(api::client::accounts::register::endpoint),
+        )
         .route(
             "/client/v3/register/available",
             get(api::client::accounts::get_username_availability::endpoint),

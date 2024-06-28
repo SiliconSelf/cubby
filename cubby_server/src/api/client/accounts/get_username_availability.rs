@@ -5,28 +5,27 @@
 use axum::{extract::State, http::StatusCode};
 use cubby_lib::{IntoMatrixError, RumaExtractor, RumaResponder};
 use polars::lazy::dsl::{col, lit};
-use ruma::api::{client::account::get_username_availability::v3::{
-    Request, Response,
-}, error::{MatrixError, MatrixErrorBody}};
+use ruma::api::{
+    client::account::get_username_availability::v3::{Request, Response},
+    error::{MatrixError, MatrixErrorBody},
+};
 use serde_json::json;
 
 use crate::managers::dataframes::DataframeManager;
 
 pub(crate) enum EndpointErrors {
-    InUse
+    InUse,
 }
 
 impl IntoMatrixError for EndpointErrors {
     fn into_matrix_error(self) -> ruma::api::error::MatrixError {
         match self {
-            EndpointErrors::InUse => {
-                MatrixError {
-                    status_code: StatusCode::BAD_REQUEST,
-                    body: MatrixErrorBody::Json(json!({
-                        "errcode": "M_USER_IN_USE",
-                        "error": "The requested username is already in use"
-                    })),
-                }
+            EndpointErrors::InUse => MatrixError {
+                status_code: StatusCode::BAD_REQUEST,
+                body: MatrixErrorBody::Json(json!({
+                    "errcode": "M_USER_IN_USE",
+                    "error": "The requested username is already in use"
+                })),
             },
         }
     }
