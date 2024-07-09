@@ -22,6 +22,18 @@ pub(crate) enum EndpointErrors {
         "The requested username is already in use"
     )]
     InUse,
+    #[matrix_error(
+        BAD_REQUEST,
+        "M_INVALID_USERNAME",
+        "The requested username is not allowed by the homeserver"
+    )]
+    _InvalidUsername,
+    #[matrix_error(
+        BAD_REQUEST,
+        "M_EXCLUSIVE",
+        "The requested username is in the exclusive namespace of an appservice"
+    )]
+    _Exclusive,
 }
 
 pub(crate) async fn endpoint(
