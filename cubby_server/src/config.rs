@@ -21,26 +21,6 @@ pub(crate) struct Config {
     ///
     /// Defaults to `3000`
     pub(crate) port: u16,
-    /// The time in milliseconds a `DataFrame` should be allowed to be held in
-    /// memory before being dropped from the cache and written to disk.
-    /// This time is measured from when the `DataFrame` is added to the
-    /// cache.
-    ///
-    /// Extending this period may increase server RAM usage, but also provide
-    /// faster access to more chats at a given time.
-    ///
-    /// This value defaults to `10_000`
-    pub(crate) cache_ttl: u64,
-    /// The time in milliseconds a `DataFrame` should be allowed to idle in
-    /// memory before being dropped from the cache and written to disk.
-    /// This time is measured from when the `DataFrame` is last accessed
-    /// from the cache.
-    ///
-    /// Extending this period may increase server RAM usage, but also provide
-    /// faster access to more chats at a given time.
-    ///
-    /// This value defaults to `1_000`
-    pub(crate) cache_tti: u64,
     /// Where to store the parquet files for the homeserver
     ///
     /// This defaults to a temporary directory that will NOT be deleted when
@@ -50,7 +30,7 @@ pub(crate) struct Config {
     /// Where to store media that gets uploaded to the server.
     ///
     /// This is optional and will default to `data_path/media/` if unset.
-    pub(crate) media_path: PathBuf,
+    pub(crate) _media_path: PathBuf,
     /// How long generated devide ids should be.
     ///
     /// You proably don't need to change this. Defaults to 16.
@@ -74,10 +54,8 @@ impl Default for Config {
         Self {
             _enable_federation: false,
             port: 3000,
-            cache_ttl: 10_000,
-            cache_tti: 1_000,
             data_path: tempdir,
-            media_path: media_tempdir,
+            _media_path: media_tempdir,
             device_id_length: 16,
             #[cfg(debug_assertions)]
             allow_registration: true,
