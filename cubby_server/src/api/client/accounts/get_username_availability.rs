@@ -2,8 +2,9 @@
 //!
 //! [Spec](https://spec.matrix.org/latest/client-server-api/#get_matrixclientv3registeravailable)
 
-use axum::{extract::State, http::StatusCode};
-use cubby_lib::{IntoMatrixError, RumaExtractor, RumaResponder};
+use axum::extract::State;
+use cubby_lib::{RumaExtractor, RumaResponder};
+use cubby_macros::IntoMatrixError;
 use polars::lazy::dsl::{col, lit};
 use ruma::api::{
     client::account::get_username_availability::v3::{Request, Response},
@@ -13,22 +14,10 @@ use serde_json::json;
 
 use crate::managers::dataframes::DataframeManager;
 
+#[derive(IntoMatrixError)]
 pub(crate) enum EndpointErrors {
+    #[matrix_error(BAD_REQUEST, "M_USER_IN_USE", "The requested username is already in use")]
     InUse,
-}
-
-impl IntoMatrixError for EndpointErrors {
-    fn into_matrix_error(self) -> MatrixError {
-        match self {
-            EndpointErrors::InUse => MatrixError {
-                status_code: StatusCode::BAD_REQUEST,
-                body: MatrixErrorBody::Json(json!({
-                    "errcode": "M_USER_IN_USE",
-                    "error": "The requested username is already in use"
-                })),
-            },
-        }
-    }
 }
 
 pub(crate) async fn endpoint(

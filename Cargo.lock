@@ -533,6 +533,7 @@ name = "cubby_macros"
 version = "0.1.0"
 dependencies = [
  "cubby_lib",
+ "proc-macro2",
  "quote",
  "ruma",
  "syn 2.0.67",

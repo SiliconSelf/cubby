@@ -1,91 +1,107 @@
 //! Macros for use in the cubby server
 
-use std::{any::TypeId, io::Write};
-
 use proc_macro::TokenStream;
+use quote::quote;
 use syn::{
-    parse::{Parse, ParseStream, Result},
-    parse_macro_input, DeriveInput, Ident, LitStr, Token,
+    braced, parse::{Parse, ParseStream, Result}, parse_macro_input, punctuated::Punctuated, token, Attribute, DeriveInput, Error, Field, Generics, Ident, LitStr, Token, Variant, Visibility
 };
 
-/// Contains a Key/Value pair from a helper attribute
-///
-/// [Thanks, Charles](https://gitlab.computer.surgery/charles/far/-/blob/5a8e928c045cddedb8866ab51c24e228e9417c8f/macros/src/lib.rs#L87-142)
-/// Parses attributes of the typical form
-struct AttrNameValue<V> {
-    /// The name of this attribute argument
-    ///
-    /// ```ignore
-    /// #[far(fmt = "{}")]
-    /// //    ^^^
-    /// ```
-    name: Ident,
-
-    /// The token separating this argument from its value
-    ///
-    /// ```ignore
-    /// #[far(fmt = "{}")]
-    /// //        ^
-    /// ```
-    #[allow(dead_code)]
-    eq_token: Token![=],
-
-    /// The value of this attribute argument
-    ///
-    /// ```ignore
-    /// #[far(fmt = "{}")]
-    /// //          ^^^^
-    /// ```
-    ///
-    /// If `V` is not a [`LitStr`][LitStr], `V` will first be parsed into a
-    /// [`LitStr`][LitStr] and then into the actual type of `V`. Otherwise, it
-    /// will only be parsed once into [`LitStr`][LitStr]. This may sound weird
-    /// but it behaves exactly how you'd expect.
-    ///
-    /// [LitStr]: struct@LitStr
-    value: V,
+#[derive(Debug)]
+struct NamedFieldsEnum {
+    _attrs: Vec<Attribute>,
+    _vis: Visibility,
+    _enum_token: Token![enum],
+    ident: Ident,
+    generics: Generics,
+    _brace_token: token::Brace,
+    variants: Punctuated<Variant, Token![,]>,
 }
 
-impl<V> Parse for AttrNameValue<V>
-where
-    V: Parse + 'static,
-{
+impl Parse for NamedFieldsEnum {
     fn parse(input: ParseStream) -> Result<Self> {
+        let content;
         Ok(Self {
-            name: input.parse()?,
-            eq_token: input.parse()?,
-            value: {
-                // Fine, I'll just implement my own specialization
-                if TypeId::of::<V>() == TypeId::of::<LitStr>() {
-                    input.parse()?
-                } else {
-                    let x: LitStr = input.parse()?;
-                    x.parse()?
-                }
-            },
+            _attrs: input.call(Attribute::parse_outer)?,
+            _vis: input.parse()?,
+            _enum_token: input.parse()?,
+            ident: input.parse()?,
+            generics: input.parse()?,
+            _brace_token: braced!(content in input),
+            variants: content.parse_terminated(Variant::parse, Token![,])?
         })
     }
 }
 
+struct IntoMatrixErrorArguments {
+    http_status: Ident,
+    _sep_1: Token![,],
+    error_code: LitStr,
+    _sep_2: Token![,],
+    error_message: LitStr
+}
+
+impl Parse for IntoMatrixErrorArguments {
+    fn parse(input: ParseStream) -> Result<Self> {
+        Ok(Self {
+            http_status: input.parse()?,
+            _sep_1: input.parse()?,
+            error_code: input.parse()?,
+            _sep_2: input.parse()?,
+            error_message: input.parse()?
+        })
+    }
+}
+
+fn gen_insert(variant: &Variant) -> proc_macro2::TokenStream {
+    let variant_name = &variant.ident;
+    let fmt = variant
+        .attrs
+        .iter()
+        .filter(|attr| attr.path().is_ident("matrix_error"))
+        .map(|attr| {
+            let fmt = attr.parse_args::<IntoMatrixErrorArguments>()
+                .map_or_else(Error::into_compile_error, |attr| {
+                    let status = attr.http_status;
+                    let code = format!("{}", attr.error_code.value());
+                    let message = format!("{}", attr.error_message.value());
+                    quote! {
+                        #variant_name => {
+                            let errcode = #code;
+                            let message = #message;
+                            MatrixError {
+                                status_code: axum::http::StatusCode::#status,
+                                body: MatrixErrorBody::Json(json!({
+                                    "errcode": errcode,
+                                    "error": message
+                            })),
+                        }
+                    }
+                }});
+            fmt
+        }).collect();
+    fmt
+}
+
 /// Derive macro for the `IntoMatrixError` trait
 #[proc_macro_derive(IntoMatrixError, attributes(matrix_error))]
-pub fn derive_into_matrix_error(item: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(item as DeriveInput);
-    let mut file = std::fs::File::create("/tmp/macro_output.txt").unwrap();
-    file.write_all(format!("{:#?}", input.clone()).as_bytes())
-        .expect("Failed to write log");
-    // Assertions that guarantee we actually can derive thiw
-    match input.data {
-        syn::Data::Struct(_) | syn::Data::Union(_) => {
-            panic!("IntoMatrixError can only be derived for enums")
-        }
-        syn::Data::Enum(e) => {
-            let mut variants = Vec::new();
-            for v in e.variants {
-                variants.push(v);
+pub fn derive_into_matrix_error(input: TokenStream) -> TokenStream {
+    let named_fields = parse_macro_input!(input as NamedFieldsEnum);
+    
+    let enum_name = named_fields.ident;
+    let enum_variants = named_fields.variants;
+
+    let inserts: proc_macro2::TokenStream = enum_variants.iter().flat_map(gen_insert).collect();
+
+    let (impl_generics, ty_generics, _where_clause) = named_fields.generics.split_for_impl();
+
+    quote! {
+        impl #impl_generics cubby_lib::IntoMatrixError for #enum_name #ty_generics {
+            fn into_matrix_error(self) -> MatrixError {
+                use #enum_name::*;
+                match self {
+                    #inserts
+                }
             }
         }
-    }
-
-    TokenStream::new()
+    }.into()
 }
