@@ -1,3 +1,5 @@
+//! Exposes the ``IntoMatrixError`` trait
+
 use ruma::api::error::MatrixError;
 
 /// A trait that can be derived for enums to automatically generate well
