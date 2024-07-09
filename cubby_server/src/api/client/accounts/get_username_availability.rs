@@ -16,7 +16,11 @@ use crate::managers::dataframes::DataframeManager;
 
 #[derive(IntoMatrixError)]
 pub(crate) enum EndpointErrors {
-    #[matrix_error(BAD_REQUEST, "M_USER_IN_USE", "The requested username is already in use")]
+    #[matrix_error(
+        BAD_REQUEST,
+        "M_USER_IN_USE",
+        "The requested username is already in use"
+    )]
     InUse,
 }
 

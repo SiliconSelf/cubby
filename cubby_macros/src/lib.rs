@@ -3,7 +3,12 @@
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
-    braced, parse::{Parse, ParseStream, Result}, parse_macro_input, punctuated::Punctuated, token, Attribute, DeriveInput, Error, Field, Generics, Ident, LitStr, Token, Variant, Visibility
+    braced,
+    parse::{Parse, ParseStream, Result},
+    parse_macro_input,
+    punctuated::Punctuated,
+    token, Attribute, DeriveInput, Error, Field, Generics, Ident, LitStr,
+    Token, Variant, Visibility,
 };
 
 #[derive(Debug)]
@@ -27,7 +32,7 @@ impl Parse for NamedFieldsEnum {
             ident: input.parse()?,
             generics: input.parse()?,
             _brace_token: braced!(content in input),
-            variants: content.parse_terminated(Variant::parse, Token![,])?
+            variants: content.parse_terminated(Variant::parse, Token![,])?,
         })
     }
 }
@@ -37,7 +42,7 @@ struct IntoMatrixErrorArguments {
     _sep_1: Token![,],
     error_code: LitStr,
     _sep_2: Token![,],
-    error_message: LitStr
+    error_message: LitStr,
 }
 
 impl Parse for IntoMatrixErrorArguments {
@@ -47,7 +52,7 @@ impl Parse for IntoMatrixErrorArguments {
             _sep_1: input.parse()?,
             error_code: input.parse()?,
             _sep_2: input.parse()?,
-            error_message: input.parse()?
+            error_message: input.parse()?,
         })
     }
 }
@@ -78,7 +83,8 @@ fn gen_insert(variant: &Variant) -> proc_macro2::TokenStream {
                     }
                 }});
             fmt
-        }).collect();
+        })
+        .collect();
     fmt
 }
 
@@ -86,13 +92,15 @@ fn gen_insert(variant: &Variant) -> proc_macro2::TokenStream {
 #[proc_macro_derive(IntoMatrixError, attributes(matrix_error))]
 pub fn derive_into_matrix_error(input: TokenStream) -> TokenStream {
     let named_fields = parse_macro_input!(input as NamedFieldsEnum);
-    
+
     let enum_name = named_fields.ident;
     let enum_variants = named_fields.variants;
 
-    let inserts: proc_macro2::TokenStream = enum_variants.iter().flat_map(gen_insert).collect();
+    let inserts: proc_macro2::TokenStream =
+        enum_variants.iter().flat_map(gen_insert).collect();
 
-    let (impl_generics, ty_generics, _where_clause) = named_fields.generics.split_for_impl();
+    let (impl_generics, ty_generics, _where_clause) =
+        named_fields.generics.split_for_impl();
 
     quote! {
         impl #impl_generics cubby_lib::IntoMatrixError for #enum_name #ty_generics {

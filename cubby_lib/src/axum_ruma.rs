@@ -59,21 +59,20 @@ pub enum RumaResponder<T, E> {
     /// The happy path
     Ok(T),
     /// Some error occured
-    Err(E)
+    Err(E),
 }
 
-impl<T, E> IntoResponse for RumaResponder<T, E> where
+impl<T, E> IntoResponse for RumaResponder<T, E>
+where
     T: OutgoingResponse,
-    E: IntoMatrixError
+    E: IntoMatrixError,
 {
     fn into_response(self) -> Response {
         let Ok(res) = (match self {
-            RumaResponder::Ok(t) => {
-                t.try_into_http_response::<BytesMut>()
-            },
+            RumaResponder::Ok(t) => t.try_into_http_response::<BytesMut>(),
             RumaResponder::Err(e) => {
                 e.into_matrix_error().try_into_http_response::<BytesMut>()
-            },
+            }
         }) else {
             return StatusCode::INTERNAL_SERVER_ERROR.into_response();
         };

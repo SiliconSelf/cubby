@@ -149,7 +149,8 @@ impl DataframeManager {
     /// Retrieve a `LazyFrame` from the cache, inserting it into the cache if it
     /// does not already exist.
     ///
-    /// Paths provided to this function are relative to the configured `data_path`
+    /// Paths provided to this function are relative to the configured
+    /// `data_path`
     ///
     /// This function is intended for read-only access to parquet data. For
     /// write access, please use `get_write` to take advantage of extra sync
@@ -183,7 +184,9 @@ impl DataframeManager {
             tracing::debug!("Received returned LazyFrame for {key:?}");
             // Mom said it's my turn on the Mutex
             let mut handle = LOCKS.write();
-            let _lock = if let Some(m) = handle.get(&key) { m.lock() } else {
+            let _lock = if let Some(m) = handle.get(&key) {
+                m.lock()
+            } else {
                 handle.insert(key.clone(), Mutex::new(()));
                 handle.get(&key).unwrap().lock()
             };
@@ -196,8 +199,8 @@ impl DataframeManager {
     }
 }
 
-/// Scan a parquet file on disk, creating it from the `TEMPLATE_FRAME` if it does
-/// not already exist.
+/// Scan a parquet file on disk, creating it from the `TEMPLATE_FRAME` if it
+/// does not already exist.
 ///
 /// Paths provided to this function are relative to the configured
 /// `PROGRAM_CONFIG.data_path`.
@@ -213,7 +216,7 @@ async fn scan_file<P: Into<PathBuf>>(path: P) -> LazyFrame {
             .expect("Failed to write template to new parquet file");
     }
     let scan_args = ScanArgsParquet::default();
-    
+
     LazyFrame::scan_parquet(key, scan_args)
         .expect("Failed to scan parquet file")
 }
