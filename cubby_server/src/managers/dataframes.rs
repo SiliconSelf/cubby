@@ -10,7 +10,7 @@ use std::{
 
 use crossbeam_channel::{unbounded, RecvTimeoutError, Sender};
 use once_cell::sync::Lazy;
-use parking_lot::{Mutex, RwLock};
+use parking_lot::Mutex;
 use polars::prelude::*;
 use tokio::sync::oneshot;
 
@@ -30,9 +30,7 @@ static TEMPLATE_FRAME: Lazy<Vec<u8>> = Lazy::new(|| {
     buffer
 });
 
-// This is fucking heinous
-static LOCKS: Lazy<Arc<RwLock<HashMap<PathBuf, Mutex<()>>>>> =
-    Lazy::new(|| Arc::new(RwLock::new(HashMap::new())));
+static LOCK_MANAGER: Lazy<LockManager> = Lazy::new(|| LockManager::new());
 
 struct LockManager {
     locks: HashMap<PathBuf, Mutex<()>>,
@@ -40,11 +38,13 @@ struct LockManager {
 }
 
 impl LockManager {
-    fn get_lock() -> FileLock {
-        todo!();
+    async fn get_lock<P: Into<PathBuf>>(&self, path: P) -> FileLock {
+        let (tx, rx) = oneshot::channel();
+        self.manager_tx.send((path.into(), tx));
+        rx.await.expect("Channel communication failed")
     }
 
-    async fn new() -> Self {
+    fn new() -> Self {
         // Create channels to the other thread
         let (manager_tx, manager_rx) =
             unbounded::<(PathBuf, oneshot::Sender<FileLock>)>();
@@ -57,39 +57,46 @@ impl LockManager {
                 VecDeque<oneshot::Sender<FileLock>>,
             > = HashMap::new();
             loop {
-                // See if any locks have been released
-                match lock_rx.recv_timeout(Duration::from_millis(1)) {
-                    Err(RecvTimeoutError::Disconnected) => {
-                        panic!("Lock Manager became disconnected");
-                    }
-                    Err(RecvTimeoutError::Timeout) => { /* Nothing received, nothing to do */
-                    }
-                    // A lock has been released
-                    Ok(m) => {
-                        tracing::debug!("Dropping lock for {m:?}");
-                        locks.remove(&m);
-                        // Skip to the next iteration of the loop in case
-                        // there's more locks to release
-                        continue;
-                    }
-                };
-                match manager_rx.recv_timeout(Duration::from_millis(1)) {
-                    Err(RecvTimeoutError::Disconnected) => {
-                        panic!("Lock Manager became disconnected");
-                    }
-                    Err(RecvTimeoutError::Timeout) => { /* Nothing received, nothing to do */
-                    }
-                    // A lock has been requested
-                    Ok((p, s)) => {
-                        if let Some(q) = queue.get_mut(&p) {
-                            q.push_back(s);
-                        } else {
-                            let mut new_queue = VecDeque::new();
-                            new_queue.push_back(s);
-                            queue.insert(p, new_queue);
+                // Eagerly release all pending locks
+                loop {
+                    match lock_rx.recv_timeout(Duration::from_millis(1)) {
+                        Err(RecvTimeoutError::Timeout) => {
+                            // All the pending locks have been released, move on
+                            // to issuing new ones
+                            break;
                         }
-                    }
-                };
+                        Err(RecvTimeoutError::Disconnected) => {
+                            panic!("Lock Manager became disconnected");
+                        }
+                        // A lock has been released
+                        Ok(m) => {
+                            tracing::debug!("Dropping lock for {m:?}");
+                            locks.remove(&m);
+                        }
+                    };
+                }
+                // Queue all pending requests for locks
+                loop {
+                    match manager_rx.recv_timeout(Duration::from_millis(1)) {
+                        Err(RecvTimeoutError::Timeout) => {
+                            // Nothing more to add to the queue
+                            break;
+                        }
+                        Err(RecvTimeoutError::Disconnected) => {
+                            panic!("Lock Manager became disconnected");
+                        }
+                        // A lock has been requested
+                        Ok((p, s)) => {
+                            if let Some(q) = queue.get_mut(&p) {
+                                q.push_back(s);
+                            } else {
+                                let mut new_queue = VecDeque::new();
+                                new_queue.push_back(s);
+                                queue.insert(p, new_queue);
+                            }
+                        }
+                    };
+                }
                 // Assign new locks based on any demand
                 if !queue.is_empty() {
                     for (k, v) in &mut queue {
@@ -175,7 +182,7 @@ impl DataframeManager {
             tracing::debug!("Task spawned");
             // Block until we receive the new data to write
             let Ok(mut value) = rx.recv() else {
-                tracing::warn!(
+                tracing::error!(
                     "Receiving {key:?} failed! Did the endpoint give up?"
                 );
                 return;
@@ -183,13 +190,7 @@ impl DataframeManager {
             tracing::debug!("Data received");
             tracing::debug!("Received returned LazyFrame for {key:?}");
             // Mom said it's my turn on the Mutex
-            let mut handle = LOCKS.write();
-            let _lock = if let Some(m) = handle.get(&key) {
-                m.lock()
-            } else {
-                handle.insert(key.clone(), Mutex::new(()));
-                handle.get(&key).unwrap().lock()
-            };
+            let file_lock = LOCK_MANAGER.get_lock(&key).await;
             // Write new data to path
             let mut file = File::create(key).unwrap();
             ParquetWriter::new(&mut file).finish(&mut value).unwrap();
