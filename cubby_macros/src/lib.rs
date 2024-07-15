@@ -64,11 +64,12 @@ fn gen_insert(variant: &Variant) -> proc_macro2::TokenStream {
         .iter()
         .filter(|attr| attr.path().is_ident("matrix_error"))
         .map(|attr| {
-            let fmt = attr.parse_args::<IntoMatrixErrorArguments>()
+            
+            attr.parse_args::<IntoMatrixErrorArguments>()
                 .map_or_else(Error::into_compile_error, |attr| {
                     let status = attr.http_status;
-                    let code = format!("{}", attr.error_code.value());
-                    let message = format!("{}", attr.error_message.value());
+                    let code = attr.error_code.value().to_string();
+                    let message = attr.error_message.value().to_string();
                     quote! {
                         #variant_name => {
                             let errcode = #code;
@@ -81,8 +82,7 @@ fn gen_insert(variant: &Variant) -> proc_macro2::TokenStream {
                             })),
                         }
                     }
-                }});
-            fmt
+                }})
         })
         .collect();
     fmt

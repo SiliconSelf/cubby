@@ -29,7 +29,7 @@ static TEMPLATE_FRAME: Lazy<Vec<u8>> = Lazy::new(|| {
     buffer
 });
 
-static LOCK_MANAGER: Lazy<LockManager> = Lazy::new(|| LockManager::new());
+static LOCK_MANAGER: Lazy<LockManager> = Lazy::new(LockManager::new);
 
 struct LockManager {
     manager_tx: Sender<(PathBuf, oneshot::Sender<FileLock>)>,
@@ -159,21 +159,21 @@ impl DataframeManager {
     /// This function is intended for read-only access to parquet data. For
     /// write access, please use `get_write` to take advantage of extra sync
     /// protections.
-    pub(crate) async fn get_lazy<P: Into<PathBuf>>(
+    pub(crate) fn get_lazy<P: Into<PathBuf>>(
         &self,
         path: P,
     ) -> LazyFrame {
-        scan_file(path).await
+        scan_file(path)
     }
 
     /// Returns an eager `DataFrame` suitable for writing
-    pub(crate) async fn get_write<P: Into<PathBuf>>(
+    pub(crate) fn get_write<P: Into<PathBuf>>(
         &self,
         path: P,
     ) -> (DataFrame, Sender<DataFrame>) {
         let mut key = PROGRAM_CONFIG.data_path.clone();
         key.push(path.into());
-        let scan = scan_file(&key).await.collect().unwrap();
+        let scan = scan_file(&key).collect().unwrap();
         let (tx, rx) = unbounded::<DataFrame>();
         tokio::spawn(async move {
             tracing::debug!("Task spawned");
@@ -202,7 +202,7 @@ impl DataframeManager {
 ///
 /// Paths provided to this function are relative to the configured
 /// `PROGRAM_CONFIG.data_path`.
-async fn scan_file<P: Into<PathBuf>>(path: P) -> LazyFrame {
+fn scan_file<P: Into<PathBuf>>(path: P) -> LazyFrame {
     let mut key = PROGRAM_CONFIG.data_path.clone();
     key.push(path.into());
     tracing::debug!("Scanning parquet file {key:?}");

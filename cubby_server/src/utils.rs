@@ -6,7 +6,7 @@ use polars::{
 
 use crate::managers::dataframes::DataframeManager;
 
-pub(crate) async fn setup_dataframes() {
+pub(crate) fn setup_dataframes() {
     let manager = DataframeManager::new();
     // Create users.parquet
     let users = df!("username" => ["cubby"]).unwrap();
@@ -21,6 +21,6 @@ pub(crate) async fn setup_dataframes() {
         ])
         .collect()
         .unwrap();
-    let (_, tx) = manager.get_write("users.parquet").await;
+    let (_, tx) = manager.get_write("users.parquet");
     tx.send(users).unwrap();
 }

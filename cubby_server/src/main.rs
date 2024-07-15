@@ -26,7 +26,7 @@ use axum::{
 async fn main() {
     // Initialize logging
     tracing_subscriber::fmt::init();
-    utils::setup_dataframes().await;
+    utils::setup_dataframes();
     // Create basic app
     let app = Router::new()
         .route(

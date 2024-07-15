@@ -40,7 +40,6 @@ pub(crate) async fn endpoint(
 ) -> RumaResponder<Response, EndpointErrors> {
     let query = frames
         .get_lazy("users.parquet")
-        .await
         .select(&[col("username")])
         .filter(col("username").eq(lit(req.username)))
         .collect()

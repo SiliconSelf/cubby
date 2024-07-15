@@ -52,7 +52,7 @@ pub(crate) async fn endpoint(
         return RumaResponder::Err(EndpointErrors::Disabled)
     }
     // Get DataFrame access
-    let _frame = frames.get_lazy("users.parquet").await;
+    let _frame = frames.get_lazy("users.parquet");
     // Create a device id if the request did not provide one
     let _device_id = match (&req.kind, &req.device_id) {
         // Generate a new ID regardless of if a guest provided one or if a user
