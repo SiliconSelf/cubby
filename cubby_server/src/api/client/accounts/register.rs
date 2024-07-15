@@ -19,20 +19,20 @@ pub(crate) enum EndpointErrors {
         "M_USER_IN_USE",
         "The desired user ID is already taken."
     )]
-    InUse,
+    _InUse,
     #[matrix_error(
         BAD_REQUEST,
         "M_INVALID_USERNAME",
         "The desired user ID is not a valid user name."
     )]
-    InvalidUsername,
+    _InvalidUsername,
     #[matrix_error(
         BAD_REQUEST,
         "M_EXCLUSIVE",
         "The desired user ID is in the exclusive namespace claimed by an \
          application service."
     )]
-    Exclusive,
+    _Exclusive,
     #[matrix_error(
         FORBIDDEN,
         "M_FORBIDDEN",
