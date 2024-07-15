@@ -187,7 +187,7 @@ impl DataframeManager {
             tracing::debug!("Data received");
             tracing::debug!("Received returned LazyFrame for {key:?}");
             // Mom said it's my turn on the Mutex
-            let file_lock = LOCK_MANAGER.get_lock(&key).await;
+            let _file_lock = LOCK_MANAGER.get_lock(&key).await;
             // Write new data to path
             let mut file = File::create(key).unwrap();
             ParquetWriter::new(&mut file).finish(&mut value).unwrap();
