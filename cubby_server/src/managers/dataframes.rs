@@ -33,14 +33,13 @@ static TEMPLATE_FRAME: Lazy<Vec<u8>> = Lazy::new(|| {
 static LOCK_MANAGER: Lazy<LockManager> = Lazy::new(|| LockManager::new());
 
 struct LockManager {
-    locks: HashMap<PathBuf, Mutex<()>>,
     manager_tx: Sender<(PathBuf, oneshot::Sender<FileLock>)>,
 }
 
 impl LockManager {
     async fn get_lock<P: Into<PathBuf>>(&self, path: P) -> FileLock {
         let (tx, rx) = oneshot::channel();
-        self.manager_tx.send((path.into(), tx));
+        self.manager_tx.send((path.into(), tx)).expect("Channel communication failed");
         rx.await.expect("Channel communication failed")
     }
 
@@ -120,7 +119,6 @@ impl LockManager {
             }
         });
         Self {
-            locks: HashMap::new(),
             manager_tx,
         }
     }
