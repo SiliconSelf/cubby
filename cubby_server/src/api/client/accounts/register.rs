@@ -13,7 +13,33 @@ use ruma::{
 use crate::{config::PROGRAM_CONFIG, managers::dataframes::DataframeManager};
 
 #[derive(IntoMatrixError)]
-pub(crate) enum EndpointErrors {}
+pub(crate) enum EndpointErrors {
+    #[matrix_error(
+        BAD_REQUEST,
+        "M_USER_IN_USE",
+        "The desired user ID is already taken."
+    )]
+    InUse,
+    #[matrix_error(
+        BAD_REQUEST,
+        "M_INVALID_USERNAME",
+        "The desired user ID is not a valid user name."
+    )]
+    InvalidUsername,
+    #[matrix_error(
+        BAD_REQUEST,
+        "M_EXCLUSIVE",
+        "The desired user ID is in the exclusive namespace claimed by an \
+         application service."
+    )]
+    Exclusive,
+    #[matrix_error(
+        FORBIDDEN,
+        "M_FORBIDDEN",
+        "Registration is disabled on this homeserver."
+    )]
+    Disabled,
+}
 
 /// Register a new account with the homeserver
 ///
@@ -23,7 +49,7 @@ pub(crate) async fn endpoint(
     RumaExtractor(req): RumaExtractor<Request>,
 ) -> RumaResponder<Response, EndpointErrors> {
     if !PROGRAM_CONFIG.allow_registration {
-        // TODO: Return error here
+        return RumaResponder::Err(EndpointErrors::Disabled)
     }
     // Get DataFrame access
     let _frame = frames.get_lazy("users.parquet").await;
