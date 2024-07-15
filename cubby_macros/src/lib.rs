@@ -105,6 +105,7 @@ pub fn derive_into_matrix_error(input: TokenStream) -> TokenStream {
         impl #ig cubby_lib::IntoMatrixError for #enum_name #tyg {
             fn into_matrix_error(self) -> ruma::api::error::MatrixError {
                 use ruma::api::error::{MatrixError, MatrixErrorBody};
+                use serde_json::json;
                 use #enum_name::*;
                 match self {
                     #inserts
