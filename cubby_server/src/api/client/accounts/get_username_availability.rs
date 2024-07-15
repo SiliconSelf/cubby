@@ -9,7 +9,6 @@ use polars::lazy::dsl::{col, lit};
 use ruma::api::client::account::get_username_availability::v3::{
     Request, Response,
 };
-use serde_json::json;
 
 use crate::managers::dataframes::DataframeManager;
 
