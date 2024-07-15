@@ -3,7 +3,12 @@
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
-    braced, parse::{Parse, ParseStream, Result}, parse_macro_input, punctuated::Punctuated, token, Attribute, Error, Generics, Ident, LitStr, Token, Variant, Visibility
+    braced,
+    parse::{Parse, ParseStream, Result},
+    parse_macro_input,
+    punctuated::Punctuated,
+    token, Attribute, Error, Generics, Ident, LitStr, Token, Variant,
+    Visibility,
 };
 
 #[derive(Debug)]
@@ -68,9 +73,9 @@ fn gen_insert(variant: &Variant) -> proc_macro2::TokenStream {
                         #variant_name => {
                             let errcode = #code;
                             let message = #message;
-                            ruma::api::error::MatrixError {
+                            MatrixError {
                                 status_code: axum::http::StatusCode::#status,
-                                body: ruma::api::error::MatrixErrorBody::Json(json!({
+                                body: MatrixErrorBody::Json(json!({
                                     "errcode": errcode,
                                     "error": message
                             })),
@@ -94,17 +99,18 @@ pub fn derive_into_matrix_error(input: TokenStream) -> TokenStream {
     let inserts: proc_macro2::TokenStream =
         enum_variants.iter().flat_map(gen_insert).collect();
 
-    let (impl_generics, ty_generics, _where_clause) =
-        named_fields.generics.split_for_impl();
+    let (ig, tyg, _where_clause) = named_fields.generics.split_for_impl();
 
     quote! {
-        impl #impl_generics cubby_lib::IntoMatrixError for #enum_name #ty_generics {
+        impl #ig cubby_lib::IntoMatrixError for #enum_name #tyg {
             fn into_matrix_error(self) -> ruma::api::error::MatrixError {
+                use ruma::api::error::{MatrixError, MatrixErrorBody};
                 use #enum_name::*;
                 match self {
                     #inserts
                 }
             }
         }
-    }.into()
+    }
+    .into()
 }
