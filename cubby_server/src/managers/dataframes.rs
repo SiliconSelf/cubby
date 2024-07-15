@@ -10,7 +10,6 @@ use std::{
 
 use crossbeam_channel::{unbounded, RecvTimeoutError, Sender};
 use once_cell::sync::Lazy;
-use parking_lot::Mutex;
 use polars::prelude::*;
 use tokio::sync::oneshot;
 
