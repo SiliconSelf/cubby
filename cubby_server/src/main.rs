@@ -29,7 +29,6 @@ async fn main() {
     utils::setup_dataframes().await;
     // Create basic app
     let app = Router::new()
-        .route("/", get(|| async { "Hello, World!" }))
         .route(
             "/client/v3/register",
             post(api::client::accounts::register::endpoint),
