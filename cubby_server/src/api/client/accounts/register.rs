@@ -49,7 +49,7 @@ pub(crate) async fn endpoint(
     RumaExtractor(req): RumaExtractor<Request>,
 ) -> RumaResponder<Response, EndpointErrors> {
     if !PROGRAM_CONFIG.allow_registration {
-        return RumaResponder::Err(EndpointErrors::Disabled)
+        return RumaResponder::Err(EndpointErrors::Disabled);
     }
     // Get DataFrame access
     let _frame = frames.get_lazy("users.parquet");

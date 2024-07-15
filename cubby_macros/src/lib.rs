@@ -64,7 +64,6 @@ fn gen_insert(variant: &Variant) -> proc_macro2::TokenStream {
         .iter()
         .filter(|attr| attr.path().is_ident("matrix_error"))
         .map(|attr| {
-            
             attr.parse_args::<IntoMatrixErrorArguments>()
                 .map_or_else(Error::into_compile_error, |attr| {
                     let status = attr.http_status;

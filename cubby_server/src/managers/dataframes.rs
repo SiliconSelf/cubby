@@ -38,7 +38,9 @@ struct LockManager {
 impl LockManager {
     async fn get_lock<P: Into<PathBuf>>(&self, path: P) -> FileLock {
         let (tx, rx) = oneshot::channel();
-        self.manager_tx.send((path.into(), tx)).expect("Channel communication failed");
+        self.manager_tx
+            .send((path.into(), tx))
+            .expect("Channel communication failed");
         rx.await.expect("Channel communication failed")
     }
 
@@ -159,10 +161,7 @@ impl DataframeManager {
     /// This function is intended for read-only access to parquet data. For
     /// write access, please use `get_write` to take advantage of extra sync
     /// protections.
-    pub(crate) fn get_lazy<P: Into<PathBuf>>(
-        &self,
-        path: P,
-    ) -> LazyFrame {
+    pub(crate) fn get_lazy<P: Into<PathBuf>>(&self, path: P) -> LazyFrame {
         scan_file(path)
     }
 
