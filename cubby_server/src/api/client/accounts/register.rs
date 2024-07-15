@@ -1,5 +1,6 @@
 use axum::extract::State;
-use cubby_lib::{IntoMatrixError, RumaExtractor, RumaResponder};
+use cubby_lib::{RumaExtractor, RumaResponder};
+use cubby_macros::IntoMatrixError;
 use rand::{distributions::Alphanumeric, Rng};
 use ruma::{
     api::client::account::register::{
@@ -11,13 +12,8 @@ use ruma::{
 
 use crate::{config::PROGRAM_CONFIG, managers::dataframes::DataframeManager};
 
+#[derive(IntoMatrixError)]
 pub(crate) enum EndpointErrors {}
-
-impl IntoMatrixError for EndpointErrors {
-    fn into_matrix_error(self) -> ruma::api::error::MatrixError {
-        todo!();
-    }
-}
 
 /// Register a new account with the homeserver
 ///
@@ -30,9 +26,9 @@ pub(crate) async fn endpoint(
         // TODO: Return error here
     }
     // Get DataFrame access
-    let frame = frames.get_lazy("users.parquet").await;
+    let _frame = frames.get_lazy("users.parquet").await;
     // Create a device id if the request did not provide one
-    let device_id = match (&req.kind, &req.device_id) {
+    let _device_id = match (&req.kind, &req.device_id) {
         // Generate a new ID regardless of if a guest provided one or if a user
         // did not provide one
         (RegistrationKind::Guest, _) | (RegistrationKind::User, None) => {
