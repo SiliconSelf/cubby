@@ -13,6 +13,7 @@ use ruma::{
     },
     OwnedDeviceId,
 };
+use tracing::instrument;
 
 use crate::{config::PROGRAM_CONFIG, managers::dataframes::DataframeManager};
 
@@ -53,6 +54,7 @@ pub(crate) enum EndpointErrors {
 /// Register a new account with the homeserver
 ///
 /// [Spec](https://spec.matrix.org/latest/client-server-api/#post_matrixclientv3register)
+#[instrument(level = "trace")]
 pub(crate) async fn endpoint(
     State(frames): State<DataframeManager>,
     RumaExtractor(req): RumaExtractor<Request>,

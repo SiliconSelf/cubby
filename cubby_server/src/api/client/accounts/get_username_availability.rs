@@ -9,6 +9,7 @@ use polars::lazy::dsl::{col, lit};
 use ruma::api::client::account::get_username_availability::v3::{
     Request, Response,
 };
+use tracing::{error, instrument};
 
 use crate::managers::dataframes::DataframeManager;
 
@@ -45,6 +46,7 @@ pub(crate) enum EndpointErrors {
     PolarsError,
 }
 
+#[instrument(level = "trace")]
 pub(crate) async fn endpoint(
     State(frames): State<DataframeManager>,
     RumaExtractor(req): RumaExtractor<Request>,
@@ -52,9 +54,10 @@ pub(crate) async fn endpoint(
     let Ok(query) = frames
         .get_lazy("users.parquet")
         .select(&[col("username")])
-        .filter(col("username").eq(lit(req.username)))
+        .filter(col("username").eq(lit(req.username.clone())))
         .collect()
     else {
+        error!("Error processing request");
         return CubbyResponder::MatrixError(EndpointErrors::PolarsError);
     };
     if query

@@ -52,6 +52,14 @@ pub(crate) struct Config {
     ///
     /// It defaults to false, obviously.
     pub(crate) allow_registration: bool,
+    /// The log level for `tracing_subscriber`
+    ///
+    /// 0: Errors only
+    /// 1: Warnings
+    /// 2 (Default): Info
+    /// 3: Debug
+    /// >=4: Trace
+    pub(crate) log_level: u8
 }
 
 impl Default for Config {
@@ -61,16 +69,25 @@ impl Default for Config {
             .into_path();
         let mut media_temp_dir = temp_dir.clone();
         media_temp_dir.push("/media");
-        Self {
+        #[cfg(debug_assertions)]
+        return Self {
             _enable_federation: false,
             port: 3000,
             data_path: temp_dir,
             _media_path: media_temp_dir,
             device_id_length: 16,
-            #[cfg(debug_assertions)]
-            allow_registration: true,
-            #[cfg(not(debug_assertions))]
             allow_registration: false,
-        }
+            log_level: 4,
+        };
+        #[cfg(not(debug_assertions))]
+        return Self {
+            _enable_federation: false,
+            port: 3000,
+            data_path: temp_dir,
+            _media_path: media_temp_dir,
+            device_id_length: 16,
+            allow_registration: false,
+            log_level: 2
+        };
     }
 }

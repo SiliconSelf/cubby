@@ -7,11 +7,14 @@ use std::{
     path::PathBuf,
     time::Duration,
 };
+use std::fmt::Debug;
+use std::future::IntoFuture;
 
 use crossbeam_channel::{unbounded, RecvTimeoutError, Sender};
 use once_cell::sync::Lazy;
 use polars::prelude::*;
 use tokio::sync::oneshot;
+use tracing::{debug, error, instrument, trace};
 
 use crate::config::PROGRAM_CONFIG;
 
@@ -65,7 +68,7 @@ impl LockManager {
         self.manager_tx
             .send((path.into(), tx))
             .expect("Channel communication failed");
-        rx.await.expect("Channel communication failed")
+        rx.into_future().await.expect("Channel communication failed")
     }
 
     /// Create a new `LockManager`. Realistically, this should only be called
@@ -96,7 +99,7 @@ impl LockManager {
                         }
                         // A lock has been released
                         Ok(m) => {
-                            tracing::debug!("Dropping lock for {m:?}");
+                            trace!("Unlocking {m:?}");
                             locks.remove(&m);
                         }
                     };
@@ -113,6 +116,7 @@ impl LockManager {
                         }
                         // A lock has been requested
                         Ok((p, s)) => {
+                            trace!("Adding request for file to the queue: {p:?}");
                             if let Some(q) = queue.get_mut(&p) {
                                 q.push_back(s);
                             } else {
@@ -131,7 +135,7 @@ impl LockManager {
                             continue;
                         }
                         // Issue a new lock
-                        tracing::debug!("Locking {k:?}");
+                        trace!("Locking {k:?}");
                         locks.insert(k.clone());
                         let lock = FileLock {
                             path: k.to_owned(),
@@ -164,7 +168,9 @@ struct FileLock {
 }
 
 impl Drop for FileLock {
+    #[instrument(level = "trace")]
     fn drop(&mut self) {
+        trace!("Dropping lock for {:?}", self.path);
         self.channel
             .send(self.path.clone())
             .expect("Failed to send message to unlock my path");
@@ -175,7 +181,7 @@ impl Drop for FileLock {
 ///
 /// This struct should only exist once as part of the state being managed by the
 /// axum router
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub(crate) struct DataframeManager;
 
 impl DataframeManager {
@@ -194,13 +200,15 @@ impl DataframeManager {
     /// write access, please use `get_write` to take advantage of extra sync
     /// protections.
     #[allow(clippy::unused_self)]
-    pub(crate) fn get_lazy<P: Into<PathBuf>>(&self, path: P) -> LazyFrame {
+    #[instrument(level = "trace")]
+    pub(crate) fn get_lazy<P: Into<PathBuf> + Debug>(&self, path: P) -> LazyFrame {
         scan_file(path)
     }
 
     /// Returns an eager `DataFrame` suitable for writing
     #[allow(clippy::unused_self)]
-    pub(crate) fn get_write<P: Into<PathBuf>>(
+    #[instrument(level = "trace")]
+    pub(crate) fn get_write<P: Into<PathBuf> + Debug>(
         &self,
         path: P,
     ) -> (DataFrame, Sender<DataFrame>) {
@@ -209,24 +217,22 @@ impl DataframeManager {
         let scan = scan_file(&key).collect().expect("Failed to scan file");
         let (tx, rx) = unbounded::<DataFrame>();
         tokio::spawn(async move {
-            tracing::debug!("Task spawned");
             // Block until we receive the new data to write
             let Ok(mut value) = rx.recv() else {
-                tracing::error!(
+                error!(
                     "Receiving {key:?} failed! Did the endpoint give up?"
                 );
                 return;
             };
-            tracing::debug!("Data received");
-            tracing::debug!("Received returned LazyFrame for {key:?}");
+            trace!("Received returned LazyFrame for {key:?}");
             // Mom said it's my turn on the Mutex
-            let _file_lock = LOCK_MANAGER.get_lock(&key).await;
+            let _file_lock = LOCK_MANAGER.get_lock(&key);
             // Write new data to path
-            let mut file = File::create(key).expect("Failed to create file");
+            let mut file = File::create(&key).expect("Failed to create file");
             ParquetWriter::new(&mut file)
                 .finish(&mut value)
                 .expect("Failed to write file");
-            tracing::debug!("Wrote the thing");
+            trace!("File written");
         });
         (scan, tx)
     }
@@ -237,12 +243,13 @@ impl DataframeManager {
 ///
 /// Paths provided to this function are relative to the configured
 /// `PROGRAM_CONFIG.data_path`.
-fn scan_file<P: Into<PathBuf>>(path: P) -> LazyFrame {
+#[instrument(level = "trace")]
+fn scan_file<P: Into<PathBuf> + Debug>(path: P) -> LazyFrame {
     let mut key = PROGRAM_CONFIG.data_path.clone();
     key.push(path.into());
-    tracing::debug!("Scanning parquet file {key:?}");
+    trace!("Scanning parquet file {key:?}");
     if !key.is_file() {
-        tracing::debug!("Creating new parquet file: {key:?}");
+        debug!("Creating new parquet file: {key:?}");
         let mut file =
             File::create(&key).expect("Failed to create new parquet file");
         file.write_all(&TEMPLATE_FRAME)

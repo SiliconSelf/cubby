@@ -21,11 +21,20 @@ use axum::{
     routing::{get, post},
     Router,
 };
+use tracing_subscriber::filter::LevelFilter;
 
 #[tokio::main]
 async fn main() {
     // Initialize logging
-    tracing_subscriber::fmt::init();
+    tracing_subscriber::fmt::fmt()
+        .with_max_level(match PROGRAM_CONFIG.log_level {
+            0 => LevelFilter::ERROR,
+            1 => LevelFilter::WARN,
+            2 => LevelFilter::INFO,
+            3 => LevelFilter::DEBUG,
+            _ => LevelFilter::TRACE
+        })
+        .init();
     utils::setup_dataframes();
     // Create basic app
     let app = Router::new()
