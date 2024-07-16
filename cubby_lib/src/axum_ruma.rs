@@ -64,7 +64,7 @@ pub enum RumaResponder<T, E> {
     /// 
     /// This is mostly once off error types such as the 401 response for
     /// /v3/register ([spec](https://spec.matrix.org/latest/client-server-api/#post_matrixclientv3register))
-    OneOff((StatusCode, serde_json::Value))
+    OneOff(StatusCode, serde_json::Value)
 }
 
 impl<T, E> IntoResponse for RumaResponder<T, E>
@@ -86,7 +86,7 @@ where
                 };
                 body.map(BytesMut::freeze).map(Body::from).into_response()
             },
-            RumaResponder::OneOff((c, v)) => {
+            RumaResponder::OneOff(c, v) => {
                 Response::builder()
                     .status(c)
                     .header("content-type", "application/json")
