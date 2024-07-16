@@ -3,7 +3,7 @@
 //! [Spec](https://spec.matrix.org/latest/client-server-api/#post_matrixclientv3register)
 
 use axum::extract::State;
-use cubby_lib::{RumaExtractor, CubbyResponder};
+use cubby_lib::{CubbyResponder, RumaExtractor};
 use cubby_macros::IntoMatrixError;
 use rand::{distributions::Alphanumeric, Rng};
 use ruma::{
@@ -16,7 +16,7 @@ use ruma::{
 
 use crate::{config::PROGRAM_CONFIG, managers::dataframes::DataframeManager};
 
-/// All of the possible errors that can be returned by the endpoint
+/// All the possible errors that can be returned by the endpoint
 #[derive(IntoMatrixError)]
 pub(crate) enum EndpointErrors {
     /// The requested username is already in use
@@ -60,8 +60,6 @@ pub(crate) async fn endpoint(
     if !PROGRAM_CONFIG.allow_registration {
         return CubbyResponder::MatrixError(EndpointErrors::Disabled);
     }
-    // return RumaResponder::OneOff(StatusCode::IM_A_TEAPOT, json!({"Hee":
-    // "Hoo"}));
 
     // Get DataFrame access
     let _frame = frames.get_lazy("users.parquet");

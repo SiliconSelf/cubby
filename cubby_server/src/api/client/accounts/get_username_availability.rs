@@ -3,7 +3,7 @@
 //! [Spec](https://spec.matrix.org/latest/client-server-api/#get_matrixclientv3registeravailable)
 
 use axum::extract::State;
-use cubby_lib::{RumaExtractor, CubbyResponder};
+use cubby_lib::{CubbyResponder, RumaExtractor};
 use cubby_macros::IntoMatrixError;
 use polars::lazy::dsl::{col, lit};
 use ruma::api::client::account::get_username_availability::v3::{
