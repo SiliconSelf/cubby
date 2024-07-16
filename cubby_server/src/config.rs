@@ -1,17 +1,25 @@
 //! Global program configuration
 
 use std::path::PathBuf;
+use figment::Figment;
+use figment::providers::{Env, Format, Serialized, Toml};
+use serde::{Serialize, Deserialize};
 
 use once_cell::sync::Lazy;
 
 /// The single source of truth for global homeserver configuration
 pub(crate) static PROGRAM_CONFIG: Lazy<Config> = Lazy::new(|| {
-    // TODO: Load this from the environment
-    Config::default()
+    Figment::new()
+        .merge(Serialized::defaults(Config::default()))
+        .merge(Toml::file("/etc/cubby/cubby.toml"))
+        .merge(Toml::file("cubby.toml"))
+        .merge(Env::prefixed("CUBBY_"))
+        .extract()
+        .expect("Failed to load configuration from environment")
 });
 
 /// Represents an instance of the global program configuration
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub(crate) struct Config {
     /// If the server should be allowed to federate with other servers.
     ///
