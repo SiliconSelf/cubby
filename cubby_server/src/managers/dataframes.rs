@@ -53,7 +53,8 @@ static LOCK_MANAGER: Lazy<LockManager> = Lazy::new(LockManager::new);
 /// requested files are locked or until there are no more requests in the
 /// queue..
 struct LockManager {
-    /// The internal transmitter for sending requests for locks to the detached thread.
+    /// The internal transmitter for sending requests for locks to the detached
+    /// thread.
     manager_tx: Sender<(PathBuf, oneshot::Sender<FileLock>)>,
 }
 
@@ -67,7 +68,8 @@ impl LockManager {
         rx.await.expect("Channel communication failed")
     }
 
-    /// Create a new `LockManager`. Realistically, this should only be called once while creating the stati`LOCK_MANAGER`ER.
+    /// Create a new `LockManager`. Realistically, this should only be called
+    /// once while creating the stati`LOCK_MANAGER`ER.
     fn new() -> Self {
         // Create channels to the other thread
         let (manager_tx, manager_rx) =
@@ -150,8 +152,9 @@ impl LockManager {
 }
 
 /// Represents a lock on a specific file
-/// 
-/// When dropped, this struct will send a message back to the lock manager that issued it.
+///
+/// When dropped, this struct will send a message back to the lock manager that
+/// issued it.
 #[derive(Debug)]
 struct FileLock {
     /// The file path is lock represents
@@ -220,7 +223,9 @@ impl DataframeManager {
             let _file_lock = LOCK_MANAGER.get_lock(&key).await;
             // Write new data to path
             let mut file = File::create(key).expect("Failed to create file");
-            ParquetWriter::new(&mut file).finish(&mut value).expect("Failed to write file");
+            ParquetWriter::new(&mut file)
+                .finish(&mut value)
+                .expect("Failed to write file");
             tracing::debug!("Wrote the thing");
         });
         (scan, tx)
