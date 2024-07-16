@@ -61,10 +61,10 @@ pub enum RumaResponder<T, E> {
     /// Some error occured
     Err(E),
     /// Something that isn't Ok, but also doesn't implement IntoMatrixError
-    /// 
+    ///
     /// This is mostly once off error types such as the 401 response for
     /// /v3/register ([spec](https://spec.matrix.org/latest/client-server-api/#post_matrixclientv3register))
-    OneOff(StatusCode, serde_json::Value)
+    OneOff(StatusCode, serde_json::Value),
 }
 
 impl<T, E> IntoResponse for RumaResponder<T, E>
@@ -79,20 +79,20 @@ where
                     return StatusCode::INTERNAL_SERVER_ERROR.into_response();
                 };
                 body.map(BytesMut::freeze).map(Body::from).into_response()
-            },
+            }
             RumaResponder::Err(e) => {
-                let Ok(body) = e.into_matrix_error().try_into_http_response::<BytesMut>() else {
+                let Ok(body) =
+                    e.into_matrix_error().try_into_http_response::<BytesMut>()
+                else {
                     return StatusCode::INTERNAL_SERVER_ERROR.into_response();
                 };
                 body.map(BytesMut::freeze).map(Body::from).into_response()
-            },
-            RumaResponder::OneOff(c, v) => {
-                Response::builder()
-                    .status(c)
-                    .header("content-type", "application/json")
-                    .body(Body::from(v.to_string()))
-                    .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR.into_response())
-            },
+            }
+            RumaResponder::OneOff(c, v) => Response::builder()
+                .status(c)
+                .header("content-type", "application/json")
+                .body(Body::from(v.to_string()))
+                .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR.into_response()),
         }
     }
 }

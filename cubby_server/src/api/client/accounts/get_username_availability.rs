@@ -37,7 +37,7 @@ pub(crate) enum EndpointErrors {
         "M_INTERNAL_SERVER_ERROR",
         "There was a problem executing the polars request"
     )]
-    PolarsError
+    PolarsError,
 }
 
 pub(crate) async fn endpoint(
@@ -48,9 +48,10 @@ pub(crate) async fn endpoint(
         .get_lazy("users.parquet")
         .select(&[col("username")])
         .filter(col("username").eq(lit(req.username)))
-        .collect() else {
-            return RumaResponder::Err(EndpointErrors::PolarsError)
-        };
+        .collect()
+    else {
+        return RumaResponder::Err(EndpointErrors::PolarsError);
+    };
     if query.column("username").unwrap().is_empty() {
         RumaResponder::Ok(Response::new(true))
     } else {

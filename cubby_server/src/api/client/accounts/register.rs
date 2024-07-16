@@ -51,6 +51,9 @@ pub(crate) async fn endpoint(
     if !PROGRAM_CONFIG.allow_registration {
         return RumaResponder::Err(EndpointErrors::Disabled);
     }
+    // return RumaResponder::OneOff(StatusCode::IM_A_TEAPOT, json!({"Hee":
+    // "Hoo"}));
+
     // Get DataFrame access
     let _frame = frames.get_lazy("users.parquet");
     // Create a device id if the request did not provide one
