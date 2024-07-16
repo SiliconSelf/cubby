@@ -1,11 +1,13 @@
 //! Global program configuration
 
 use std::path::PathBuf;
-use figment::Figment;
-use figment::providers::{Env, Format, Serialized, Toml};
-use serde::{Serialize, Deserialize};
 
+use figment::{
+    providers::{Env, Format, Serialized, Toml},
+    Figment,
+};
 use once_cell::sync::Lazy;
+use serde::{Deserialize, Serialize};
 
 /// The single source of truth for global homeserver configuration
 pub(crate) static PROGRAM_CONFIG: Lazy<Config> = Lazy::new(|| {
@@ -59,7 +61,7 @@ pub(crate) struct Config {
     /// 2 (Default): Info
     /// 3: Debug
     /// >=4: Trace
-    pub(crate) log_level: u8
+    pub(crate) log_level: u8,
 }
 
 impl Default for Config {
@@ -87,7 +89,7 @@ impl Default for Config {
             _media_path: media_temp_dir,
             device_id_length: 16,
             allow_registration: false,
-            log_level: 2
+            log_level: 2,
         };
     }
 }

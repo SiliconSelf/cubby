@@ -32,7 +32,7 @@ async fn main() {
             1 => LevelFilter::WARN,
             2 => LevelFilter::INFO,
             3 => LevelFilter::DEBUG,
-            _ => LevelFilter::TRACE
+            _ => LevelFilter::TRACE,
         })
         .init();
     utils::setup_dataframes();

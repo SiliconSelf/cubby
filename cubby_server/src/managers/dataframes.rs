@@ -4,13 +4,13 @@
 
 use std::{
     collections::{HashMap, HashSet, VecDeque},
+    fmt::Debug,
     fs::File,
+    future::IntoFuture,
     io::Write,
     path::PathBuf,
     time::Duration,
 };
-use std::fmt::Debug;
-use std::future::IntoFuture;
 
 use crossbeam_channel::{unbounded, RecvTimeoutError, Sender};
 use once_cell::sync::Lazy;
@@ -46,10 +46,10 @@ static LOCK_MANAGER: Lazy<LockManager> = Lazy::new(LockManager::new);
 ///
 /// The primary method of interaction with the `LockManager` is through the
 /// ``get_lock()`` method where, when given a file path, the manager will return
-/// a future that can be `await`ed until a lock is achieved on the file. Once the
-/// `FileLock` is dropped, it will send a message back to the manager saying it
-/// has been dropped and to unlock the path it was locking for the next request
-/// in line.
+/// a future that can be `await`ed until a lock is achieved on the file. Once
+/// the `FileLock` is dropped, it will send a message back to the manager saying
+/// it has been dropped and to unlock the path it was locking for the next
+/// request in line.
 ///
 /// Requests for file locks are in a first-come-first-serve basis. When freeing
 /// locks, the manager will eagerly process all pending `FileLock` drop messages
@@ -118,7 +118,9 @@ impl LockManager {
                         }
                         // A lock has been requested
                         Ok((p, s)) => {
-                            trace!("Adding request for file to the queue: {p:?}");
+                            trace!(
+                                "Adding request for file to the queue: {p:?}"
+                            );
                             if let Some(q) = queue.get_mut(&p) {
                                 q.push_back(s);
                             } else {
@@ -203,7 +205,10 @@ impl DataframeManager {
     /// protections.
     #[allow(clippy::unused_self)]
     #[instrument(level = "trace")]
-    pub(crate) fn get_lazy<P: Into<PathBuf> + Debug>(&self, path: P) -> LazyFrame {
+    pub(crate) fn get_lazy<P: Into<PathBuf> + Debug>(
+        &self,
+        path: P,
+    ) -> LazyFrame {
         scan_file(path)
     }
 
@@ -221,9 +226,7 @@ impl DataframeManager {
         tokio::spawn(async move {
             // Block until we receive the new data to write
             let Ok(mut value) = rx.recv() else {
-                error!(
-                    "Receiving {key:?} failed! Did the endpoint give up?"
-                );
+                error!("Receiving {key:?} failed! Did the endpoint give up?");
                 return;
             };
             trace!("Received returned LazyFrame for {key:?}");
