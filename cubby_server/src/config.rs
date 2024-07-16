@@ -39,9 +39,9 @@ pub(crate) struct Config {
     ///
     /// This is optional and will default to `data_path/media/` if unset.
     pub(crate) _media_path: PathBuf,
-    /// How long generated devide ids should be.
+    /// How long generated device ids should be.
     ///
-    /// You proably don't need to change this. Defaults to 16.
+    /// You probably don't need to change this. Defaults to 16.
     pub(crate) device_id_length: u8,
     /// Is registration allowed on this server
     ///
@@ -56,16 +56,16 @@ pub(crate) struct Config {
 
 impl Default for Config {
     fn default() -> Self {
-        let tempdir = tempdir::TempDir::new("cubby")
+        let temp_dir = tempdir::TempDir::new("cubby")
             .expect("Failed to create temporary directory")
             .into_path();
-        let mut media_tempdir = tempdir.clone();
-        media_tempdir.push("/media");
+        let mut media_temp_dir = temp_dir.clone();
+        media_temp_dir.push("/media");
         Self {
             _enable_federation: false,
             port: 3000,
-            data_path: tempdir,
-            _media_path: media_tempdir,
+            data_path: temp_dir,
+            _media_path: media_temp_dir,
             device_id_length: 16,
             #[cfg(debug_assertions)]
             allow_registration: true,

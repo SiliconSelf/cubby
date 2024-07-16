@@ -31,7 +31,7 @@ static TEMPLATE_FRAME: Lazy<Vec<u8>> = Lazy::new(|| {
     buffer
 });
 
-/// This static exists to manage all of the file locks held by the program at
+/// This static exists to manage all the file locks held by the program at
 /// any given time.
 ///
 /// See the documentation for ``LockManager`` for more details.
@@ -41,7 +41,7 @@ static LOCK_MANAGER: Lazy<LockManager> = Lazy::new(LockManager::new);
 ///
 /// The primary method of interaction with the `LockManager` is through the
 /// ``get_lock()`` method where, when given a file path, the manager will return
-/// a future that can be awaited until a lock is achieved on the file. Once the
+/// a future that can be `await`ed until a lock is achieved on the file. Once the
 /// `FileLock` is dropped, it will send a message back to the manager saying it
 /// has been dropped and to unlock the path it was locking for the next request
 /// in line.
@@ -51,7 +51,7 @@ static LOCK_MANAGER: Lazy<LockManager> = Lazy::new(LockManager::new);
 /// until none remain in its channel. It will then iterate through the entire
 /// queue of requests for locks and issue as many as possible until all
 /// requested files are locked or until there are no more requests in the
-/// queue..
+/// queue.
 struct LockManager {
     /// The internal transmitter for sending requests for locks to the detached
     /// thread.
@@ -69,7 +69,7 @@ impl LockManager {
     }
 
     /// Create a new `LockManager`. Realistically, this should only be called
-    /// once while creating the stati`LOCK_MANAGER`ER.
+    /// once while creating the static `LOCK_MANAGER`.
     fn new() -> Self {
         // Create channels to the other thread
         let (manager_tx, manager_rx) =

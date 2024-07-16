@@ -1,4 +1,4 @@
-//! All of the API endpoints
+//! All the API endpoints
 //!
 //! This module is where most of the magic happens
 
