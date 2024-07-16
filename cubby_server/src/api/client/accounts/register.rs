@@ -3,7 +3,7 @@
 //! [Spec](https://spec.matrix.org/latest/client-server-api/#post_matrixclientv3register)
 
 use axum::extract::State;
-use cubby_lib::{RumaExtractor, RumaResponder};
+use cubby_lib::{RumaExtractor, CubbyResponder};
 use cubby_macros::IntoMatrixError;
 use rand::{distributions::Alphanumeric, Rng};
 use ruma::{
@@ -56,9 +56,9 @@ pub(crate) enum EndpointErrors {
 pub(crate) async fn endpoint(
     State(frames): State<DataframeManager>,
     RumaExtractor(req): RumaExtractor<Request>,
-) -> RumaResponder<Response, EndpointErrors> {
+) -> CubbyResponder<Response, EndpointErrors> {
     if !PROGRAM_CONFIG.allow_registration {
-        return RumaResponder::Err(EndpointErrors::Disabled);
+        return CubbyResponder::MatrixError(EndpointErrors::Disabled);
     }
     // return RumaResponder::OneOff(StatusCode::IM_A_TEAPOT, json!({"Hee":
     // "Hoo"}));

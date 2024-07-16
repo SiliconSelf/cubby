@@ -65,11 +65,11 @@ pub trait IntoMatrixError {
 }
 
 /// Responder for wrapping Ruma responses to use with Axum
-pub enum RumaResponder<T, E> {
+pub enum CubbyResponder<T, E> {
     /// The happy path
-    Ok(T),
+    Ruma(T),
     /// Some error occured
-    Err(E),
+    MatrixError(E),
     /// Something that isn't Ok, but also doesn't implement `IntoMatrixError`
     ///
     /// This is mostly once off error types such as the 401 response for
@@ -77,20 +77,20 @@ pub enum RumaResponder<T, E> {
     OneOff(StatusCode, serde_json::Value),
 }
 
-impl<T, E> IntoResponse for RumaResponder<T, E>
+impl<T, E> IntoResponse for CubbyResponder<T, E>
 where
     T: OutgoingResponse,
     E: IntoMatrixError,
 {
     fn into_response(self) -> Response {
         match self {
-            RumaResponder::Ok(t) => {
+            CubbyResponder::Ruma(t) => {
                 let Ok(body) = t.try_into_http_response::<BytesMut>() else {
                     return StatusCode::INTERNAL_SERVER_ERROR.into_response();
                 };
                 body.map(BytesMut::freeze).map(Body::from).into_response()
             }
-            RumaResponder::Err(e) => {
+            CubbyResponder::MatrixError(e) => {
                 let Ok(body) =
                     e.into_matrix_error().try_into_http_response::<BytesMut>()
                 else {
@@ -98,7 +98,7 @@ where
                 };
                 body.map(BytesMut::freeze).map(Body::from).into_response()
             }
-            RumaResponder::OneOff(c, v) => Response::builder()
+            CubbyResponder::OneOff(c, v) => Response::builder()
                 .status(c)
                 .header("content-type", "application/json")
                 .body(Body::from(v.to_string()))

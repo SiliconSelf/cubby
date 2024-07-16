@@ -3,7 +3,7 @@
 //! [Spec](https://spec.matrix.org/latest/client-server-api/#get_matrixclientv3registeravailable)
 
 use axum::extract::State;
-use cubby_lib::{RumaExtractor, RumaResponder};
+use cubby_lib::{RumaExtractor, CubbyResponder};
 use cubby_macros::IntoMatrixError;
 use polars::lazy::dsl::{col, lit};
 use ruma::api::client::account::get_username_availability::v3::{
@@ -48,22 +48,22 @@ pub(crate) enum EndpointErrors {
 pub(crate) async fn endpoint(
     State(frames): State<DataframeManager>,
     RumaExtractor(req): RumaExtractor<Request>,
-) -> RumaResponder<Response, EndpointErrors> {
+) -> CubbyResponder<Response, EndpointErrors> {
     let Ok(query) = frames
         .get_lazy("users.parquet")
         .select(&[col("username")])
         .filter(col("username").eq(lit(req.username)))
         .collect()
     else {
-        return RumaResponder::Err(EndpointErrors::PolarsError);
+        return CubbyResponder::MatrixError(EndpointErrors::PolarsError);
     };
     if query
         .column("username")
         .expect("We already checked that this exists")
         .is_empty()
     {
-        RumaResponder::Ok(Response::new(true))
+        CubbyResponder::Ruma(Response::new(true))
     } else {
-        RumaResponder::Err(EndpointErrors::InUse)
+        CubbyResponder::MatrixError(EndpointErrors::InUse)
     }
 }
