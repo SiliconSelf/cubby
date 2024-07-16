@@ -1,4 +1,6 @@
 //! Manages the dataframes used by the program
+//!
+//! This module honestly sucks and should be remade entirely in the future.
 
 use std::{
     collections::{HashMap, HashSet, VecDeque},

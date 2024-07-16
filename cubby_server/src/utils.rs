@@ -7,30 +7,39 @@
 use polars::{
     datatypes::DataType,
     df,
-    lazy::{dsl::col, frame::IntoLazy},
+    lazy::{dsl::{col, cols}, frame::IntoLazy},
 };
 
 use crate::managers::dataframes::DataframeManager;
+
+/// Creates a new parquet file from a provided template
+///
+/// # Arguments
+/// - `$file_name`: the string literal of the path the new parquet file should be written to.
+/// - `$df`: the new dataframe to write at that path
+/// - `$cat`: an array of string literals with the names of any columns that should be cast to a categorical datatype for string interning before writing them to disk.
+macro_rules! parquet_file {
+    ($file_name:literal, $df:expr) => {
+        let frame = $df.expect("Created dataframe is invalid");
+        let(_, tx) = DataframeManager::new().get_write($file_name);
+        tx.send(frame).expect("Sending the dataframe to be written failed");
+    };
+    ($file_name:literal, $df:expr, $cat:tt) => {
+        let frame = $df.expect("Created dataframe is invalid");
+        let frame = frame.lazy().select([
+            col("*").exclude($cat),
+            cols($cat)
+            .cast(DataType::Categorical(None, polars::datatypes::CategoricalOrdering::default()))
+        ]).collect().expect("Casting columns to categorical datatype failed");
+        let (_, tx) = DataframeManager::new().get_write($file_name);
+        tx.send(frame).expect("Sending the dataframe to be written failed");
+    }
+}
 
 /// Creates initial dataframes that are required to exist when the program first
 /// starts
 ///
 /// This function should be removed eventually in favor of something smarter
 pub(crate) fn setup_dataframes() {
-    let manager = DataframeManager::new();
-    // Create users.parquet
-    let users = df!("username" => ["cubby"]).unwrap();
-    let users = users
-        .lazy()
-        .select([
-            col("*").exclude(["username"]),
-            col("username").cast(DataType::Categorical(
-                None,
-                polars::datatypes::CategoricalOrdering::Lexical,
-            )),
-        ])
-        .collect()
-        .expect("Creating the users dataframe failed");
-    let (_, tx) = manager.get_write("users.parquet");
-    tx.send(users).expect("Sending the dataframe to be written failed");
+    parquet_file!("users.parquet", df!("username" => ["cubby"]), ["username"]);
 }
