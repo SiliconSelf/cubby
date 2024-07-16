@@ -15,9 +15,7 @@ use axum::{
     RequestPartsExt,
 };
 use bytes::BytesMut;
-use ruma::api::{IncomingRequest, OutgoingResponse};
-
-use crate::IntoMatrixError;
+use ruma::api::{error::MatrixError, IncomingRequest, OutgoingResponse};
 
 /// Extractor for pulling Ruma request structs from the Axum request body
 pub struct RumaExtractor<T>(pub T);
@@ -44,14 +42,26 @@ where
         _state: &S,
     ) -> Result<Self, Self::Rejection> {
         let (mut parts, body) = req.into_parts();
-        let path_arguments: Path<Vec<String>> = parts.extract().await.unwrap();
-        let body_bytes = axum::body::to_bytes(body, usize::MAX).await.unwrap();
+        let path_arguments: Path<Vec<String>> = parts
+            .extract()
+            .await
+            .map_err(|_e| StatusCode::BAD_REQUEST.into_response())?;
+        let body_bytes = axum::body::to_bytes(body, usize::MAX)
+            .await
+            .map_err(|_e| StatusCode::BAD_REQUEST.into_response())?;
         let new_request: Request<Bytes> =
             Request::from_parts(parts, body_bytes);
-        let new_t =
-            T::try_from_http_request(new_request, &path_arguments).unwrap();
+        let new_t = T::try_from_http_request(new_request, &path_arguments)
+            .map_err(|_e| StatusCode::BAD_REQUEST.into_response())?;
         Ok(Self(new_t))
     }
+}
+
+/// A trait that can be derived for enums to automatically generate well
+/// formed matrix errors.
+pub trait IntoMatrixError {
+    /// Convert the enum member
+    fn into_matrix_error(self) -> MatrixError;
 }
 
 /// Responder for wrapping Ruma responses to use with Axum
@@ -60,7 +70,7 @@ pub enum RumaResponder<T, E> {
     Ok(T),
     /// Some error occured
     Err(E),
-    /// Something that isn't Ok, but also doesn't implement IntoMatrixError
+    /// Something that isn't Ok, but also doesn't implement `IntoMatrixError`
     ///
     /// This is mostly once off error types such as the 401 response for
     /// /v3/register ([spec](https://spec.matrix.org/latest/client-server-api/#post_matrixclientv3register))

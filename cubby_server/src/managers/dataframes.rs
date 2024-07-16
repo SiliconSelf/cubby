@@ -25,17 +25,40 @@ use crate::config::PROGRAM_CONFIG;
 static TEMPLATE_FRAME: Lazy<Vec<u8>> = Lazy::new(|| {
     let mut df = df!("0" => [0]).unwrap();
     let mut buffer: Vec<u8> = Vec::new();
-    ParquetWriter::new(&mut buffer).finish(&mut df).unwrap();
+    ParquetWriter::new(&mut buffer)
+        .finish(&mut df)
+        .expect("Failed to create Parquet Writer for TEMPLATE_FRAME");
     buffer
 });
 
+/// This static exists to manage all of the file locks held by the program at
+/// any given time.
+///
+/// See the documentation for ``LockManager`` for more details.
 static LOCK_MANAGER: Lazy<LockManager> = Lazy::new(LockManager::new);
 
+/// Eagerly manages a series of locks under its control.
+///
+/// The primary method of interaction with the `LockManager` is through the
+/// ``get_lock()`` method where, when given a file path, the manager will return
+/// a future that can be awaited until a lock is achieved on the file. Once the
+/// `FileLock` is dropped, it will send a message back to the manager saying it
+/// has been dropped and to unlock the path it was locking for the next request
+/// in line.
+///
+/// Requests for file locks are in a first-come-first-serve basis. When freeing
+/// locks, the manager will eagerly process all pending `FileLock` drop messages
+/// until none remain in its channel. It will then iterate through the entire
+/// queue of requests for locks and issue as many as possible until all
+/// requested files are locked or until there are no more requests in the
+/// queue..
 struct LockManager {
+    /// The internal transmitter for sending requests for locks to the detached thread.
     manager_tx: Sender<(PathBuf, oneshot::Sender<FileLock>)>,
 }
 
 impl LockManager {
+    /// Request a lock on a specific file
     async fn get_lock<P: Into<PathBuf>>(&self, path: P) -> FileLock {
         let (tx, rx) = oneshot::channel();
         self.manager_tx
@@ -44,6 +67,7 @@ impl LockManager {
         rx.await.expect("Channel communication failed")
     }
 
+    /// Create a new `LockManager`. Realistically, this should only be called once while creating the stati`LOCK_MANAGER`ER.
     fn new() -> Self {
         // Create channels to the other thread
         let (manager_tx, manager_rx) =
@@ -125,9 +149,14 @@ impl LockManager {
     }
 }
 
+/// Represents a lock on a specific file
+/// 
+/// When dropped, this struct will send a message back to the lock manager that issued it.
 #[derive(Debug)]
 struct FileLock {
+    /// The file path is lock represents
     path: PathBuf,
+    /// The channel back to the sender that issued the lock
     channel: Sender<PathBuf>,
 }
 
@@ -161,18 +190,20 @@ impl DataframeManager {
     /// This function is intended for read-only access to parquet data. For
     /// write access, please use `get_write` to take advantage of extra sync
     /// protections.
+    #[allow(clippy::unused_self)]
     pub(crate) fn get_lazy<P: Into<PathBuf>>(&self, path: P) -> LazyFrame {
         scan_file(path)
     }
 
     /// Returns an eager `DataFrame` suitable for writing
+    #[allow(clippy::unused_self)]
     pub(crate) fn get_write<P: Into<PathBuf>>(
         &self,
         path: P,
     ) -> (DataFrame, Sender<DataFrame>) {
         let mut key = PROGRAM_CONFIG.data_path.clone();
         key.push(path.into());
-        let scan = scan_file(&key).collect().unwrap();
+        let scan = scan_file(&key).collect().expect("Failed to scan file");
         let (tx, rx) = unbounded::<DataFrame>();
         tokio::spawn(async move {
             tracing::debug!("Task spawned");
@@ -188,8 +219,8 @@ impl DataframeManager {
             // Mom said it's my turn on the Mutex
             let _file_lock = LOCK_MANAGER.get_lock(&key).await;
             // Write new data to path
-            let mut file = File::create(key).unwrap();
-            ParquetWriter::new(&mut file).finish(&mut value).unwrap();
+            let mut file = File::create(key).expect("Failed to create file");
+            ParquetWriter::new(&mut file).finish(&mut value).expect("Failed to write file");
             tracing::debug!("Wrote the thing");
         });
         (scan, tx)

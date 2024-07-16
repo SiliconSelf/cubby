@@ -12,30 +12,35 @@ use ruma::api::client::account::get_username_availability::v3::{
 
 use crate::managers::dataframes::DataframeManager;
 
+/// All possible errors that can be returned from the endpoint
 #[derive(IntoMatrixError)]
 pub(crate) enum EndpointErrors {
+    /// The requested username was already in use
     #[matrix_error(
         BAD_REQUEST,
         "M_USER_IN_USE",
         "The requested username is already in use"
     )]
     InUse,
+    /// The requested username was invalid
     #[matrix_error(
         BAD_REQUEST,
         "M_INVALID_USERNAME",
         "The requested username is not allowed by the homeserver"
     )]
     _InvalidUsername,
+    /// The request username is in the namespace of an appservice
     #[matrix_error(
         BAD_REQUEST,
         "M_EXCLUSIVE",
         "The requested username is in the exclusive namespace of an appservice"
     )]
     _Exclusive,
+    /// There was an error running the polars query
     #[matrix_error(
         INTERNAL_SERVER_ERROR,
         "M_INTERNAL_SERVER_ERROR",
-        "There was a problem executing the polars request"
+        "There was a problem executing the polars query"
     )]
     PolarsError,
 }
@@ -52,7 +57,11 @@ pub(crate) async fn endpoint(
     else {
         return RumaResponder::Err(EndpointErrors::PolarsError);
     };
-    if query.column("username").unwrap().is_empty() {
+    if query
+        .column("username")
+        .expect("We already checked that this exists")
+        .is_empty()
+    {
         RumaResponder::Ok(Response::new(true))
     } else {
         RumaResponder::Err(EndpointErrors::InUse)

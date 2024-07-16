@@ -12,6 +12,7 @@ use syn::{
 };
 
 #[derive(Debug)]
+#[allow(clippy::missing_docs_in_private_items)]
 struct NamedFieldsEnum {
     _attrs: Vec<Attribute>,
     _vis: Visibility,
@@ -37,6 +38,7 @@ impl Parse for NamedFieldsEnum {
     }
 }
 
+#[allow(clippy::missing_docs_in_private_items)]
 struct IntoMatrixErrorArguments {
     http_status: Ident,
     _sep_1: Token![,],
@@ -57,6 +59,7 @@ impl Parse for IntoMatrixErrorArguments {
     }
 }
 
+/// This function generates a single branch for a given enum variant
 fn gen_insert(variant: &Variant) -> proc_macro2::TokenStream {
     let variant_name = &variant.ident;
     let fmt = variant
@@ -67,8 +70,8 @@ fn gen_insert(variant: &Variant) -> proc_macro2::TokenStream {
             attr.parse_args::<IntoMatrixErrorArguments>()
                 .map_or_else(Error::into_compile_error, |attr| {
                     let status = attr.http_status;
-                    let code = attr.error_code.value().to_string();
-                    let message = attr.error_message.value().to_string();
+                    let code = attr.error_code.value().clone();
+                    let message = attr.error_message.value().clone();
                     quote! {
                         #variant_name => {
                             let errcode = #code;

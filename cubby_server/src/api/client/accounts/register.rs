@@ -1,3 +1,7 @@
+//! Code related to the username availability checking endpoint.
+//!
+//! [Spec](https://spec.matrix.org/latest/client-server-api/#post_matrixclientv3register)
+
 use axum::extract::State;
 use cubby_lib::{RumaExtractor, RumaResponder};
 use cubby_macros::IntoMatrixError;
@@ -12,20 +16,24 @@ use ruma::{
 
 use crate::{config::PROGRAM_CONFIG, managers::dataframes::DataframeManager};
 
+/// All of the possible errors that can be returned by the endpoint
 #[derive(IntoMatrixError)]
 pub(crate) enum EndpointErrors {
+    /// The requested username is already in use
     #[matrix_error(
         BAD_REQUEST,
         "M_USER_IN_USE",
         "The desired user ID is already taken."
     )]
     _InUse,
+    /// The requested username is invalid
     #[matrix_error(
         BAD_REQUEST,
         "M_INVALID_USERNAME",
         "The desired user ID is not a valid user name."
     )]
     _InvalidUsername,
+    /// The requested username is in the exclusive namespace of an appservice
     #[matrix_error(
         BAD_REQUEST,
         "M_EXCLUSIVE",
@@ -33,6 +41,7 @@ pub(crate) enum EndpointErrors {
          application service."
     )]
     _Exclusive,
+    /// Registration is currently disabled on the server
     #[matrix_error(
         FORBIDDEN,
         "M_FORBIDDEN",
@@ -62,6 +71,9 @@ pub(crate) async fn endpoint(
         // did not provide one
         (RegistrationKind::Guest, _) | (RegistrationKind::User, None) => {
             let mut rng = rand::thread_rng();
+            // SAFETY: THis as conversion is ok because rand will only return
+            // things that can be cast as char
+            #[allow(clippy::as_conversions)]
             let chars: String = (0..PROGRAM_CONFIG.device_id_length)
                 .map(|_| rng.sample(Alphanumeric) as char)
                 .collect();
@@ -75,12 +87,11 @@ pub(crate) async fn endpoint(
     // Process the registration request
     match req.kind {
         RegistrationKind::Guest => {
-            // frame_handle
-            //     .column("guests")
-            //     .;
+            todo!();
         }
-        RegistrationKind::User => {}
+        RegistrationKind::User => {
+            todo!();
+        }
         _ => todo!(),
     }
-    todo!();
 }

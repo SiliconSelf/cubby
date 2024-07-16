@@ -48,7 +48,9 @@ pub(crate) struct Config {
 
 impl Default for Config {
     fn default() -> Self {
-        let tempdir = tempdir::TempDir::new("cubby").unwrap().into_path();
+        let tempdir = tempdir::TempDir::new("cubby")
+            .expect("Failed to create temporary directory")
+            .into_path();
         let mut media_tempdir = tempdir.clone();
         media_tempdir.push("/media");
         Self {
