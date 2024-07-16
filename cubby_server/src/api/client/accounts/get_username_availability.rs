@@ -32,18 +32,25 @@ pub(crate) enum EndpointErrors {
         "The requested username is in the exclusive namespace of an appservice"
     )]
     _Exclusive,
+    #[matrix_error(
+        INTERNAL_SERVER_ERROR,
+        "M_INTERNAL_SERVER_ERROR",
+        "There was a problem executing the polars request"
+    )]
+    PolarsError
 }
 
 pub(crate) async fn endpoint(
     State(frames): State<DataframeManager>,
     RumaExtractor(req): RumaExtractor<Request>,
 ) -> RumaResponder<Response, EndpointErrors> {
-    let query = frames
+    let Ok(query) = frames
         .get_lazy("users.parquet")
         .select(&[col("username")])
         .filter(col("username").eq(lit(req.username)))
-        .collect()
-        .unwrap();
+        .collect() else {
+            return RumaResponder::Err(EndpointErrors::PolarsError)
+        };
     if query.column("username").unwrap().is_empty() {
         RumaResponder::Ok(Response::new(true))
     } else {
