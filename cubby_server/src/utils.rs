@@ -4,6 +4,7 @@
 //! development. Anything actually used in runtime in multiple places probably
 //! belongs in `cubby_lib`
 
+use cubby_lib::FileManager;
 use polars::{
     datatypes::DataType,
     df,
@@ -12,8 +13,6 @@ use polars::{
         frame::IntoLazy,
     },
 };
-
-use crate::managers::dataframes::DataframeManager;
 
 /// Creates a new parquet file from a provided template
 ///
@@ -27,7 +26,7 @@ use crate::managers::dataframes::DataframeManager;
 macro_rules! parquet_file {
     ($file_name:literal, $df:expr) => {
         let frame = $df.expect("Created dataframe is invalid");
-        let (_, tx) = DataframeManager::new().get_write($file_name);
+        let (_, tx) = FileManager::new().get_write($file_name);
         tx.send(frame).expect("Sending the dataframe to be written failed");
     };
     ($file_name:literal, $df:expr, $cat:tt) => {
@@ -43,7 +42,7 @@ macro_rules! parquet_file {
             ])
             .collect()
             .expect("Casting columns to categorical datatype failed");
-        let (_, tx) = DataframeManager::new().get_write($file_name);
+        let (_, tx) = FileManager::new().get_write($file_name);
         tx.send(frame).expect("Sending the dataframe to be written failed");
     };
 }
@@ -53,5 +52,6 @@ macro_rules! parquet_file {
 ///
 /// This function should be removed eventually in favor of something smarter
 pub(crate) fn setup_dataframes() {
-    parquet_file!("users.parquet", df!("username" => ["cubby"]), ["username"]);
+    // parquet_file!("users.parquet", df!("username" => ["cubby"]),
+    // ["username"]);
 }

@@ -3,15 +3,13 @@
 //! [Spec](https://spec.matrix.org/latest/client-server-api/#get_matrixclientv3registeravailable)
 
 use axum::extract::State;
-use cubby_lib::{CubbyResponder, RumaExtractor};
+use cubby_lib::{CubbyResponder, FileManager, RumaExtractor};
 use cubby_macros::IntoMatrixError;
 use polars::lazy::dsl::{col, lit};
 use ruma::api::client::account::get_username_availability::v3::{
     Request, Response,
 };
 use tracing::{error, instrument};
-
-use crate::managers::dataframes::DataframeManager;
 
 /// All possible errors that can be returned from the endpoint
 #[derive(IntoMatrixError)]
@@ -48,7 +46,7 @@ pub(crate) enum EndpointErrors {
 
 #[instrument(level = "trace")]
 pub(crate) async fn endpoint(
-    State(frames): State<DataframeManager>,
+    State(frames): State<FileManager>,
     RumaExtractor(req): RumaExtractor<Request>,
 ) -> CubbyResponder<Response, EndpointErrors> {
     let Ok(query) = frames

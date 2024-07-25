@@ -46,7 +46,7 @@ async fn main() {
             "/client/v3/register/available",
             get(api::client::accounts::get_username_availability::endpoint),
         )
-        .with_state(managers::dataframes::DataframeManager::new());
+        .with_state(cubby_lib::FileManager::new());
     // Create listener
     let socket_addr =
         SocketAddr::new(IpAddr::from([0, 0, 0, 0]), PROGRAM_CONFIG.port);

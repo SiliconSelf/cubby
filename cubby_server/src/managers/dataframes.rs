@@ -9,10 +9,14 @@ use std::{
     future::IntoFuture,
     io::Write,
     path::PathBuf,
+    sync::Mutex,
     time::Duration,
 };
 
-use crossbeam_channel::{unbounded, Receiver, RecvTimeoutError, Sender};
+use crossbeam_channel::{
+    unbounded, Receiver, RecvError, RecvTimeoutError, Sender,
+};
+use cubby_lib::file_manager::{FileLock, FileManager, Message, Receive};
 use once_cell::sync::Lazy;
 use polars::prelude::*;
 use tokio::sync::oneshot;
@@ -36,39 +40,29 @@ static TEMPLATE_FRAME: Lazy<Vec<u8>> = Lazy::new(|| {
     buffer
 });
 
-trait Message {}
+struct GetManagedLazyFrame<P>(P)
+where
+    P: Into<PathBuf>;
 
-pub(crate) struct DataFrameManager {
-    tx: Sender<Box<dyn Message>>,
-    rx: Receiver<Box<dyn Message>>
+impl<P> Message for GetManagedLazyFrame<P>
+where
+    P: Into<PathBuf>,
+{
+    type Response = ManagedLazyFrame;
 }
 
-impl DataFrameManager {
-    pub(crate) fn new() -> Self {
-        let (_thread_tx, manager_rx) = unbounded::<Box<dyn Message>>();
-        let (manager_tx, _thread_rx) = unbounded::<Box<dyn Message>>();
-        tokio::spawn(async move { todo!(); });
-        Self {
-            tx: manager_tx,
-            rx: manager_rx
-        }
-    }
-}
-
-trait Receive<T> {
-    fn handle(message: T);
-}
-
-#[derive(Debug)]
-struct GetLockMessage<P> where P: Into<PathBuf> {
-    path: P
-}
-
-impl<P> Receive<GetLockMessage<P>> for DataFrameManager where P: Into<PathBuf> + Debug {
-    #[instrument(level = "trace")]
-    fn handle(message: GetLockMessage<P>) {
-        let _path: PathBuf = message.path.into();
-        todo!();
+impl<P> Receive<GetManagedLazyFrame<P>> for FileManager
+where
+    P: Into<PathBuf>,
+{
+    async fn handle(
+        &self,
+        message: GetManagedLazyFrame<P>,
+    ) -> ManagedLazyFrame {
+        let path = message.0.into();
+        let lock = self.get_lock(path).await;
+        let frame = ManagedLazyFrame::new(lock);
+        frame
     }
 }
 
@@ -80,25 +74,37 @@ impl<P> Receive<GetLockMessage<P>> for DataFrameManager where P: Into<PathBuf> +
 pub(crate) struct ManagedLazyFrame {
     /// The internal `LazyFrame`
     frame: LazyFrame,
-    /// The lock on the file, this is just here to prevent any other writers
-    /// from getting a lock on the file while this is in use
-    _file_lock: FileLock,
+    /// The lock on the file underneath this LazyFrame. Once dropped, this will
+    /// unlock the file for other threads to access it.
+    _lock: FileLock,
     /// The transmitter for sending the internal `frame` back to the manager
     tx: Sender<LazyFrame>,
 }
 
 impl ManagedLazyFrame {
+    pub(crate) fn new(lock: FileLock) -> Self {
+        todo!();
+    }
+
     /// Run a closure taking the internal `LazyFrame` as an argument, replacing
     /// the internal frame with its result
     ///
-    /// This function exists because pretty much all of the methods for
-    /// `DataFrame` an`LazyFrame`me have the `fn x(self, ..) -> Self` function
+    /// This function exists because pretty much all the methods for
+    /// `DataFrame` an`LazyFrame`me have the `fn x(self, …) -> Self` function
     /// signature pattern, meaning it's basically impossible to use references
     /// in any productive way and any data processing at endpoints would require
     /// a large number of clones and a convoluted mess of channels. With this
     /// approach, we bring the function to the data because we can't bring the
     /// data to the function.
-    pub(crate) fn apply<F: FnOnce(LazyFrame) -> LazyFrame>(mut self, closure: F) {
+    ///
+    /// It is theoretically (and trivially) possible to extract the internal
+    /// LazyFrame from this closure and replace it with an empty one.
+    /// Because of this, this pattern should not be depended on as a safety
+    /// feature.
+    pub(crate) fn apply<F: FnOnce(LazyFrame) -> LazyFrame>(
+        mut self,
+        closure: F,
+    ) {
         self.frame = closure(self.frame.clone());
     }
 }
@@ -107,7 +113,6 @@ impl Drop for ManagedLazyFrame {
     #[instrument(level = "trace", skip(self))]
     fn drop(&mut self) {
         trace!("Attempting to send LazyFrame back to manager during drop");
-        self.tx
-            .send(self.frame.clone());
+        self.tx.send(self.frame.clone()).expect("TODO: panic message");
     }
 }

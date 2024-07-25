@@ -3,7 +3,7 @@
 //! [Spec](https://spec.matrix.org/latest/client-server-api/#post_matrixclientv3register)
 
 use axum::extract::State;
-use cubby_lib::{CubbyResponder, RumaExtractor};
+use cubby_lib::{CubbyResponder, FileManager, RumaExtractor};
 use cubby_macros::IntoMatrixError;
 use rand::{distributions::Alphanumeric, Rng};
 use ruma::{
@@ -15,7 +15,7 @@ use ruma::{
 };
 use tracing::instrument;
 
-use crate::{config::PROGRAM_CONFIG, managers::dataframes::DataframeManager};
+use crate::config::PROGRAM_CONFIG;
 
 /// All the possible errors that can be returned by the endpoint
 #[derive(IntoMatrixError)]
@@ -56,7 +56,7 @@ pub(crate) enum EndpointErrors {
 /// [Spec](https://spec.matrix.org/latest/client-server-api/#post_matrixclientv3register)
 #[instrument(level = "trace")]
 pub(crate) async fn endpoint(
-    State(frames): State<DataframeManager>,
+    State(frames): State<FileManager>,
     RumaExtractor(req): RumaExtractor<Request>,
 ) -> CubbyResponder<Response, EndpointErrors> {
     if !PROGRAM_CONFIG.allow_registration {

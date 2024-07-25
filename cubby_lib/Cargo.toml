@@ -10,9 +10,12 @@ workspace = true
 [dependencies]
 axum = "0.7.5"
 bytes = "1.6.0"
+crossbeam-channel = "0.5.13"
 ruma = { git = "https://github.com/ruma/ruma", branch = "main", features = [
     "client-api-s",
     "federation-api-s",
     "compat"
 ] }
 serde_json = "1.0"
+tokio = { version = "1.39.1", features = ["full"] }
+tracing = "0.1.40"
