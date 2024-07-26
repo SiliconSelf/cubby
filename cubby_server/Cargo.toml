@@ -37,8 +37,6 @@ once_cell = "1.19.0"
 cubby_macros = { path = "../cubby_macros" }
 cubby_lib = { path = "../cubby_lib" }
 tempdir = "0.3.7"
-parking_lot = "0.12.3"
-bytes = "1.6.0"
 rand = "0.8.5"
 regex = "1.10.5"
 crossbeam-channel = "0.5.13"

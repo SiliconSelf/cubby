@@ -500,13 +500,11 @@ name = "cubby"
 version = "0.1.0"
 dependencies = [
  "axum",
- "bytes",
  "crossbeam-channel",
  "cubby_lib",
  "cubby_macros",
  "figment",
  "once_cell",
- "parking_lot",
  "polars",
  "rand 0.8.5",
  "regex",
