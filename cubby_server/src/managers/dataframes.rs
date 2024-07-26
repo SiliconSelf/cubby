@@ -2,27 +2,13 @@
 //!
 //! This module honestly sucks and should be remade entirely in the future.
 
-use std::{
-    collections::{HashMap, HashSet, VecDeque},
-    fmt::Debug,
-    fs::File,
-    future::IntoFuture,
-    io::Write,
-    path::PathBuf,
-    sync::Mutex,
-    time::Duration,
-};
+use std::path::PathBuf;
 
-use crossbeam_channel::{
-    unbounded, Receiver, RecvError, RecvTimeoutError, Sender,
-};
+use crossbeam_channel::{unbounded, Sender};
 use cubby_lib::file_manager::{FileLock, FileManager, Message, Receive};
 use once_cell::sync::Lazy;
 use polars::prelude::*;
-use tokio::sync::oneshot;
-use tracing::{debug, error, instrument, trace};
-
-use crate::config::PROGRAM_CONFIG;
+use tracing::{instrument, trace};
 
 /// This template exists to have a small `DataFrame` that can be easily cloned
 /// to a new file instead of evaluating a new one every time we need to make a
@@ -83,7 +69,23 @@ pub(crate) struct ManagedLazyFrame {
 
 impl ManagedLazyFrame {
     pub(crate) fn new(lock: FileLock) -> Self {
-        todo!();
+        let (tx, rx) = unbounded::<LazyFrame>();
+        tokio::spawn(async move {
+            let Ok(received) = rx.recv() else {
+                panic!("ManagedLazyFrame channel disconnected before drop");
+            };
+            let _frame = received.collect();
+            // TODO: Merge frame here
+        });
+        Self {
+            frame: LazyFrame::scan_parquet(
+                lock.get_path_owned(),
+                ScanArgsParquet::default(),
+            )
+            .expect("Failed to scan parquet file"),
+            _lock: lock,
+            tx,
+        }
     }
 
     /// Run a closure taking the internal `LazyFrame` as an argument, replacing

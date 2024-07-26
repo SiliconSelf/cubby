@@ -1,6 +1,6 @@
 use std::{
     collections::{HashMap, VecDeque},
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::atomic::{AtomicBool, Ordering},
 };
 
@@ -22,6 +22,16 @@ where
 pub struct FileLock {
     path: PathBuf,
     tx: Sender<PathBuf>,
+}
+
+impl FileLock {
+    pub fn get_path(&self) -> &Path {
+        self.path.as_path()
+    }
+
+    pub fn get_path_owned(&self) -> PathBuf {
+        self.path.clone()
+    }
 }
 
 impl Drop for FileLock {
