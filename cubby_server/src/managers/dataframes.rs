@@ -46,7 +46,7 @@ where
         message: GetManagedLazyFrame<P>,
     ) -> ManagedLazyFrame {
         let path = message.0.into();
-        let lock = self.get_lock(path).await;
+        let lock = self.lock(path).await;
         let frame = ManagedLazyFrame::new(lock);
         frame
     }

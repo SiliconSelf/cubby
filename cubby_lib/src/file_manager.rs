@@ -1,3 +1,9 @@
+//! File Manager
+//!
+//! This module provides tools for mitigating race conditions when accessing resources on disk.
+//!
+//! TODO: Write more docs about how this works.
+
 use std::{
     collections::{HashMap, VecDeque},
     path::{Path, PathBuf},
@@ -7,29 +13,41 @@ use std::{
 use crossbeam_channel::{Receiver, Sender, TryRecvError};
 use tokio::sync::oneshot;
 
+/// A message to be sent to and handled by the ``FileManager``.
 pub trait Message {
+    /// The response type handling this message should return
     type Response;
 }
 
+/// A trait implemented by the ``FileManager`` per message type
 pub trait Receive<M>
 where
     M: Message,
 {
+    /// Logic for handling a message provided to the ``FileManager``.
+    #[allow(async_fn_in_trait)]
     async fn handle(&self, message: M) -> M::Response;
 }
 
+/// Represents a lock on an individual file.
+///
+/// This lock implements custom drop logic, phoning home to the ``FileManager`` that issued it to
+/// indicate that a new lock can be issued to another thread.
 #[derive(Debug)]
 pub struct FileLock {
+    /// The path this lock represents
     path: PathBuf,
+    /// The internal sender for phoning home
     tx: Sender<PathBuf>,
 }
 
 impl FileLock {
-    pub fn get_path(&self) -> &Path {
+    /// Gets a reference to the path this lock represents
+    #[must_use] pub fn get_path(&self) -> &Path {
         self.path.as_path()
     }
-
-    pub fn get_path_owned(&self) -> PathBuf {
+    /// Clone the internal path
+    #[must_use] pub fn get_path_owned(&self) -> PathBuf {
         self.path.clone()
     }
 }
@@ -41,35 +59,50 @@ impl Drop for FileLock {
 }
 
 #[derive(Debug, Clone)]
+/// A ``FileManager``. See module-level docs for more details.
 pub struct FileManager {
+    /// The channel transmitter for communication with the management thread.
     pub tx: Sender<(PathBuf, oneshot::Sender<FileLock>)>,
 }
 
 impl FileManager {
-    pub fn new() -> Self {
+    /// Create a new ``FileManager``
+    #[must_use] pub fn new() -> Self {
         let (manager_tx, thread_rx) = crossbeam_channel::unbounded();
         tokio::spawn(async move {
-            file_manager_thread(thread_rx);
+            file_manager_thread(&thread_rx);
         });
         Self {
             tx: manager_tx,
         }
     }
-
-    pub async fn get_lock(&self, path: PathBuf) -> FileLock {
+    /// Request a lock on a specific file.
+    ///
+    /// This function will block until the lock is achieved.
+    ///
+    /// # Panics
+    ///
+    /// This function will panic if any channels it uses become disconnected while the program is still running
+    pub async fn lock(&self, path: PathBuf) -> FileLock {
         let (tx, rx) = oneshot::channel();
         self.tx
             .send((path, tx))
             .expect("Channel became disconnected while requesting lock");
-        let lock = rx
+        rx
             .await
-            .expect("Channel became disconnected while waiting for lock");
-        lock
+            .expect("Channel became disconnected while waiting for lock")
     }
 }
 
+impl Default for FileManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// The background thread to manage locks requested and freed by the program via the ``FileManager``.
 fn file_manager_thread(
-    lock_rx: Receiver<(PathBuf, oneshot::Sender<FileLock>)>,
+    lock_rx: &Receiver<(PathBuf, oneshot::Sender<FileLock>)>,
 ) {
     let mut locks: HashMap<PathBuf, AtomicBool> = HashMap::new();
     let mut queue: HashMap<PathBuf, VecDeque<oneshot::Sender<FileLock>>> =
@@ -125,11 +158,10 @@ fn file_manager_thread(
         for (k, v) in &mut queue {
             // Skip to the next iteration if the requested file is locked
             if let Some(lock) = locks.get(k) {
-                if lock.load(Ordering::Relaxed) == true {
+                if lock.load(Ordering::Relaxed) {
                     continue;
-                } else {
-                    lock.store(true, Ordering::Relaxed);
                 }
+                lock.store(true, Ordering::Relaxed);
             } else {
                 // If the requested file is not in the map, add and lock it
                 locks.insert(k.clone(), AtomicBool::new(true));
