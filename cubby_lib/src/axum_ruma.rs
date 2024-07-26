@@ -68,7 +68,7 @@ pub trait IntoMatrixError {
 pub enum CubbyResponder<T, E> {
     /// The happy path
     Ruma(T),
-    /// Some error occured
+    /// Some error occurred
     MatrixError(E),
     /// Something that isn't Ok, but also doesn't implement `IntoMatrixError`
     ///
