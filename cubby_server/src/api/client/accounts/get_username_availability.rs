@@ -11,6 +11,8 @@ use ruma::api::client::account::get_username_availability::v3::{
 };
 use tracing::{error, instrument};
 
+use crate::managers::dataframes::ParquetManager;
+
 /// All possible errors that can be returned from the endpoint
 #[derive(IntoMatrixError)]
 pub(crate) enum EndpointErrors {
@@ -46,18 +48,27 @@ pub(crate) enum EndpointErrors {
 
 #[instrument(level = "trace")]
 pub(crate) async fn endpoint(
-    State(frames): State<FileManager>,
+    State(file_manager): State<FileManager>,
     RumaExtractor(req): RumaExtractor<Request>,
 ) -> CubbyResponder<Response, EndpointErrors> {
-    let Ok(query) = frames
-        .get_lazy("users.parquet")
+    // Load the list of users into memory. If this fails, something is very
+    // wrong with the server.
+    let Ok(frame) = file_manager.get_lazyframe("users.parquet").await else {
+        error!(
+            "users.parquet could not be loaded! Something is very wrong with \
+             the server!"
+        );
+        return CubbyResponder::MatrixError(EndpointErrors::PolarsError);
+    };
+    let Ok(query) = frame
         .select(&[col("username")])
         .filter(col("username").eq(lit(req.username.clone())))
         .collect()
     else {
-        error!("Error processing request");
+        tracing::warn!("Error processing request for username availability");
         return CubbyResponder::MatrixError(EndpointErrors::PolarsError);
     };
+
     if query
         .column("username")
         .expect("We already checked that this exists")

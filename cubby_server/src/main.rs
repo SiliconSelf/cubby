@@ -4,7 +4,7 @@ mod config;
 mod managers;
 
 mod api;
-mod utils;
+// mod utils;
 
 use std::net::{IpAddr, SocketAddr};
 
@@ -35,7 +35,7 @@ async fn main() {
             _ => LevelFilter::TRACE,
         })
         .init();
-    utils::setup_dataframes();
+    // utils::setup_dataframes();
     // Create basic app
     let app = Router::new()
         .route(
