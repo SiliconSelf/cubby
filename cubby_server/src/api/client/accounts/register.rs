@@ -2,6 +2,8 @@
 //!
 //! [Spec](https://spec.matrix.org/latest/client-server-api/#post_matrixclientv3register)
 
+use std::intrinsics::mir::Unreachable;
+
 use axum::extract::State;
 use cubby_lib::{CubbyResponder, FileManager, RumaExtractor};
 use cubby_macros::IntoMatrixError;
@@ -49,6 +51,13 @@ pub(crate) enum EndpointErrors {
         "Registration is disabled on this homeserver."
     )]
     Disabled,
+    #[matrix_error(
+        INTERNAL_SERVER_ERROR,
+        "M_UNREACHABLE",
+        "Logic for handling this request reached code that is supposed to be \
+         unreachable."
+    )]
+    Unreachable,
 }
 
 /// Register a new account with the homeserver
@@ -81,7 +90,11 @@ pub(crate) async fn endpoint(
         }
         (RegistrationKind::User, Some(id)) => id.clone(),
         (..) => {
-            unreachable!("What");
+            trace::error!(
+                "Unreachable code was reached in the account registration \
+                 endpoint! The code must be changed to handle this case."
+            );
+            return CubbyResponder::MatrixError(EndpointErrors::Unreachable);
         }
     };
     // Process the registration request
