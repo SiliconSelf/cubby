@@ -1,6 +1,7 @@
 //! File Manager
 //!
-//! This module provides tools for mitigating race conditions when accessing resources on disk.
+//! This module provides tools for mitigating race conditions when accessing
+//! resources on disk.
 //!
 //! TODO: Write more docs about how this works.
 
@@ -31,8 +32,8 @@ where
 
 /// Represents a lock on an individual file.
 ///
-/// This lock implements custom drop logic, phoning home to the ``FileManager`` that issued it to
-/// indicate that a new lock can be issued to another thread.
+/// This lock implements custom drop logic, phoning home to the ``FileManager``
+/// that issued it to indicate that a new lock can be issued to another thread.
 #[derive(Debug)]
 pub struct FileLock {
     /// The path this lock represents
@@ -43,11 +44,14 @@ pub struct FileLock {
 
 impl FileLock {
     /// Gets a reference to the path this lock represents
-    #[must_use] pub fn get_path(&self) -> &Path {
+    #[must_use]
+    pub fn get_path(&self) -> &Path {
         self.path.as_path()
     }
+
     /// Clone the internal path
-    #[must_use] pub fn get_path_owned(&self) -> PathBuf {
+    #[must_use]
+    pub fn get_path_owned(&self) -> PathBuf {
         self.path.clone()
     }
 }
@@ -67,7 +71,8 @@ pub struct FileManager {
 
 impl FileManager {
     /// Create a new ``FileManager``
-    #[must_use] pub fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         let (manager_tx, thread_rx) = crossbeam_channel::unbounded();
         tokio::spawn(async move {
             file_manager_thread(&thread_rx);
@@ -76,21 +81,21 @@ impl FileManager {
             tx: manager_tx,
         }
     }
+
     /// Request a lock on a specific file.
     ///
     /// This function will block until the lock is achieved.
     ///
     /// # Panics
     ///
-    /// This function will panic if any channels it uses become disconnected while the program is still running
+    /// This function will panic if any channels it uses become disconnected
+    /// while the program is still running
     pub async fn lock(&self, path: PathBuf) -> FileLock {
         let (tx, rx) = oneshot::channel();
         self.tx
             .send((path, tx))
             .expect("Channel became disconnected while requesting lock");
-        rx
-            .await
-            .expect("Channel became disconnected while waiting for lock")
+        rx.await.expect("Channel became disconnected while waiting for lock")
     }
 }
 
@@ -100,7 +105,8 @@ impl Default for FileManager {
     }
 }
 
-/// The background thread to manage locks requested and freed by the program via the ``FileManager``.
+/// The background thread to manage locks requested and freed by the program via
+/// the ``FileManager``.
 fn file_manager_thread(
     lock_rx: &Receiver<(PathBuf, oneshot::Sender<FileLock>)>,
 ) {
