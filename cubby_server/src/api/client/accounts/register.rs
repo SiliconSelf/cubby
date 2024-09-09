@@ -13,7 +13,7 @@ use ruma::{
     },
     OwnedDeviceId,
 };
-use tracing::instrument;
+use tracing::{error, instrument};
 
 use crate::{config::PROGRAM_CONFIG, managers::dataframes::ParquetManager};
 
@@ -96,7 +96,7 @@ pub(crate) async fn endpoint(
         }
         (RegistrationKind::User, Some(id)) => id.clone(),
         (..) => {
-            tracing::error!(
+            error!(
                 "Unreachable code was reached in the account registration \
                  endpoint! The code must be changed to handle this case."
             );
