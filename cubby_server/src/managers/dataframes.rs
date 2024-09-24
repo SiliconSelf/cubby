@@ -9,7 +9,8 @@ use cubby_lib::file_manager::{FileLock, FileManager, Message, Receive};
 use polars::prelude::*;
 use tracing::{instrument, trace};
 
-/// A message requesting that the file manager return a `LazyFrame` for the given path
+/// A message requesting that the file manager return a `LazyFrame` for the
+/// given path
 pub(crate) struct GetLazyFrame<P>(P)
 where
     P: Into<PathBuf>;
@@ -32,7 +33,8 @@ where
     }
 }
 
-/// A message requesting that the file manager return a `ManagedLazyFrame` for the given path
+/// A message requesting that the file manager return a `ManagedLazyFrame` for
+/// the given path
 pub(crate) struct GetManagedLazyFrame<P>(P)
 where
     P: Into<PathBuf>;
@@ -110,7 +112,9 @@ impl ManagedLazyFrame {
     /// `LazyFrame` from this closure and replace it with an empty one.
     /// Because of this, this pattern should not be depended on as a safety
     /// feature.
-    // This function currently has an underscore prefix because it is not being used yet. It will be used in the near future once frames need to start being modified and have those changed written to disk.
+    // This function currently has an underscore prefix because it is not being
+    // used yet. It will be used in the near future once frames need to start
+    // being modified and have those changed written to disk.
     pub(crate) fn _apply<F: FnOnce(LazyFrame) -> LazyFrame>(
         mut self,
         closure: F,
@@ -127,11 +131,17 @@ impl Drop for ManagedLazyFrame {
     }
 }
 
-/// Functionality required for managing the parquet files used by the cubby server
+/// Functionality required for managing the parquet files used by the cubby
+/// server
 pub(crate) trait ParquetManager<P> {
-    /// Get an unmanaged `LazyFrame`. If data needs to be mutated in a way that is written to persistent storage, `get_managed_lazyframe` should be used instead.
+    /// Get an unmanaged `LazyFrame`. If data needs to be mutated in a way that
+    /// is written to persistent storage, `get_managed_lazyframe` should be used
+    /// instead.
     async fn get_lazyframe(&self, path: P) -> Result<LazyFrame, PolarsError>;
-    /// Get a managed `LazyFrame`. When dropped, any changes made to the internal `LazyFrame` via the `apply()` method will be written to disk. If data should not be written to disk when the `LazyFrame` is dropped, `get_lazyframe` should be used instead.
+    /// Get a managed `LazyFrame`. When dropped, any changes made to the
+    /// internal `LazyFrame` via the `apply()` method will be written to disk.
+    /// If data should not be written to disk when the `LazyFrame` is dropped,
+    /// `get_lazyframe` should be used instead.
     async fn get_managed_lazyframe(&self, path: P) -> ManagedLazyFrame;
 }
 
